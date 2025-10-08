@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Control de Llaves y Vehículos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --vehicle-color: #27ae60;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+        }
+        
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+        
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: bold;
+        }
+        
+        .btn-primary {
+            background-color: var(--secondary-color);
+            border: none;
+        }
+        
+        .btn-success {
+            background-color: #27ae60;
+            border: none;
+        }
+        
+        .btn-danger {
+            background-color: var(--accent-color);
+            border: none;
+        }
+        
+        .btn-vehicle {
+            background-color: var(--vehicle-color);
+            border: none;
+        }
+        
+        .table-responsive {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .table th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .key-status, .vehicle-status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .status-available {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status-borrowed, .status-parked {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-exited {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+        
+        .stats-card {
+            text-align: center;
+            padding: 15px;
+        }
+        
+        .stats-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--secondary-color);
+        }
+        
+        .stats-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        footer {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 0;
+            margin-top: 30px;
+        }
+        
+        .report-section {
+            background-color: #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .tab-content {
+            padding-top: 20px;
+        }
+        
+        .nav-tabs .nav-link.active {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+        
+        .nav-tabs .nav-link {
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: var(--primary-color);">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-key-fill me-2"></i>Sistema de Control
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" data-bs-toggle="tab" data-bs-target="#keys-tab">
+                            <i class="bi bi-key me-1"></i> Control de Llaves
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="tab" data-bs-target="#vehicles-tab">
+                            <i class="bi bi-truck me-1"></i> Control de Vehículos
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Logo y título -->
+        <div class="logo-container">
+            <div class="logo">
+                <i class="bi bi-key"></i>
+            </div>
+            <div>
+                <h1 class="mb-0">Sistema de Control de Llaves y Vehículos</h1>
+                <p class="text-muted">Registro completo de movimientos</p>
+            </div>
+        </div>
+
+        <!-- Pestañas -->
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="keys-tab" data-bs-toggle="tab" data-bs-target="#keys" type="button" role="tab">
+                    <i class="bi bi-key me-1"></i>Control de Llaves
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="vehicles-tab" data-bs-toggle="tab" data-bs-target="#vehicles" type="button" role="tab">
+                    <i class="bi bi-truck me-1"></i>Control de Vehículos
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <!-- Pestaña de Llaves -->
+            <div class="tab-pane fade show active" id="keys" role="tabpanel">
+                <!-- Estadísticas -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card stats-card">
+                            <div class="stats-number" id="totalKeys">0</div>
+                            <div class="stats-label">Total de Llaves</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stats-card">
+                            <div class="stats-number" id="availableKeys">0</div>
+                            <div class="stats-label">Disponibles</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stats-card">
+                            <div class="stats-number" id="borrowedKeys">0</div>
+                            <div class="stats-label">Prestadas</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stats-card">
+                            <div class="stats-number" id="todayMovements">0</div>
+                            <div class="stats-label">Movimientos Hoy</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- Formulario de registro -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-plus-circle me-2"></i>Registro de Movimiento
+                            </div>
+                            <div class="card-body">
+                                <form id="keyForm">
+                                    <div class="mb-3">
+                                        <label for="keySelect" class="form-label">Seleccionar Llave</label>
+                                        <select class="form-select" id="keySelect" required>
+                                            <option value="" selected disabled>Seleccione una llave</option>
+                                            <!-- Las opciones se cargarán con JavaScript -->
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="personName" class="form-label">Retirada por</label>
+                                        <input type="text" class="form-control" id="personName" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="notes" class="form-label">Observaciones (opcional)</label>
+                                        <textarea class="form-control" id="notes" rows="2"></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="bi bi-check-circle me-2"></i>Registrar Retirada
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Estado de llaves -->
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <i class="bi bi-info-circle me-2"></i>Estado de Llaves
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Disponibles:</span>
+                                    <span class="badge bg-success" id="availableBadge">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Prestadas:</span>
+                                    <span class="badge bg-danger" id="borrowedBadge">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Historial de movimientos -->
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-clock-history me-2"></i>Historial de Movimientos
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary" id="filterToday">
+                                        <i class="bi bi-calendar-day me-1"></i>Hoy
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" id="filterAll">
+                                        <i class="bi bi-calendar-range me-1"></i>Todos
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover" id="movementsTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha/Hora</th>
+                                                <th>Llave</th>
+                                                <th>Retirada por</th>
+                                                <th>Estado</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Los datos se cargarán con JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sección de reportes -->
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <i class="bi bi-file-earmark-pdf me-2"></i>Generar Reportes PDF
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="report-section p-3 mb-3">
+                                            <h5 class="mb-3">Reporte del Día</h5>
+                                            <p class="text-muted">Genera un PDF con todos los movimientos de hoy</p>
+                                            <button class="btn btn-primary w-100" id="generateTodayReport">
+                                                <i class="bi bi-file-earmark-pdf me-2"></i>Generar PDF del Día
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="report-section p-3">
+                                            <h5 class="mb-3">Reporte por Fecha</h5>
+                                            <p class="text-muted">Selecciona una fecha para generar el reporte</p>
+                                            <div class="mb-3">
+                                                <label for="reportDate" class="form-label">Seleccionar Fecha</label>
+                                                <input type="date" class="form-control" id="reportDate">
+                                            </div>
+                                            <button class="btn btn-primary w-100" id="generateDateReport">
+                                                <i class="bi bi-file-earmark-pdf me-2"></i>Generar PDF por Fecha
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña de Vehículos -->
+            <div class="tab-pane fade" id="vehicles" role="tabpanel">
+                <!-- Estadísticas de vehículos -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card stats-card">
+                            <div class="stats-number" id="totalVehicles">0</div>
+                            <div class="stats-label">Vehículos Registrados</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stats-card">
+                            <div class="stats-number" id="parkedVehicles">0</div>
+                            <div class="stats-label">En Parqueadero</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stats-card">
+                            <div class="stats-number" id="exitedVehicles">0</div>
+                            <div class="stats-label">Salidas Hoy</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stats-card">
+                            <div class="stats-number" id="vehicleMovements">0</div>
+                            <div class="stats-label">Movimientos Hoy</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- Formulario de registro de vehículos -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="bi bi-plus-circle me-2"></i>Registro de Vehículo
+                            </div>
+                            <div class="card-body">
+                                <form id="vehicleForm">
+                                    <div class="mb-3">
+                                        <label for="vehiclePlate" class="form-label">Matrícula</label>
+                                        <input type="text" class="form-control" id="vehiclePlate" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="vehicleCompany" class="form-label">Empresa</label>
+                                        <input type="text" class="form-control" id="vehicleCompany" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="vehicleDriver" class="form-label">Conductor</label>
+                                        <input type="text" class="form-control" id="vehicleDriver" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="vehicleType" class="form-label">Tipo de Vehículo</label>
+                                        <select class="form-select" id="vehicleType" required>
+                                            <option value="" selected disabled>Seleccione un tipo</option>
+                                            <option value="Coche">Coche</option>
+                                            <option value="Furgoneta">Furgoneta</option>
+                                            <option value="Camión">Camión</option>
+                                            <option value="Motocicleta">Motocicleta</option>
+                                            <option value="Otro">Otro</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="vehicleNotes" class="form-label">Observaciones (opcional)</label>
+                                        <textarea class="form-control" id="vehicleNotes" rows="2"></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-vehicle w-100">
+                                        <i class="bi bi-check-circle me-2"></i>Registrar Entrada
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Botón para añadir vehículo nuevo -->
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <i class="bi bi-truck me-2"></i>Gestión de Vehículos
+                            </div>
+                            <div class="card-body">
+                                <button class="btn btn-outline-primary w-100 mb-3" id="addVehicleBtn" data-bs-toggle="modal" data-bs-target="#addVehicleModal">
+                                    <i class="bi bi-plus-circle me-2"></i>Añadir Vehículo Nuevo
+                                </button>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>En Parqueadero:</span>
+                                    <span class="badge bg-danger" id="parkedBadge">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Salidas Hoy:</span>
+                                    <span class="badge bg-info" id="exitedBadge">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Historial de movimientos de vehículos -->
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-clock-history me-2"></i>Historial de Vehículos
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary" id="filterVehicleToday">
+                                        <i class="bi bi-calendar-day me-1"></i>Hoy
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" id="filterVehicleAll">
+                                        <i class="bi bi-calendar-range me-1"></i>Todos
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover" id="vehicleMovementsTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha/Hora</th>
+                                                <th>Matrícula</th>
+                                                <th>Empresa</th>
+                                                <th>Conductor</th>
+                                                <th>Estado</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Los datos se cargarán con JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sección de reportes de vehículos -->
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <i class="bi bi-file-earmark-pdf me-2"></i>Generar Reportes PDF
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="report-section p-3 mb-3">
+                                            <h5 class="mb-3">Reporte del Día</h5>
+                                            <p class="text-muted">Genera un PDF con todos los movimientos de hoy</p>
+                                            <button class="btn btn-vehicle w-100" id="generateVehicleTodayReport">
+                                                <i class="bi bi-file-earmark-pdf me-2"></i>Generar PDF del Día
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="report-section p-3">
+                                            <h5 class="mb-3">Reporte por Fecha</h5>
+                                            <p class="text-muted">Selecciona una fecha para generar el reporte</p>
+                                            <div class="mb-3">
+                                                <label for="vehicleReportDate" class="form-label">Seleccionar Fecha</label>
+                                                <input type="date" class="form-control" id="vehicleReportDate">
+                                            </div>
+                                            <button class="btn btn-vehicle w-100" id="generateVehicleDateReport">
+                                                <i class="bi bi-file-earmark-pdf me-2"></i>Generar PDF por Fecha
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para añadir vehículo nuevo -->
+    <div class="modal fade" id="addVehicleModal" tabindex="-1" aria-labelledby="addVehicleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addVehicleModalLabel">Añadir Vehículo Nuevo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="newVehicleForm">
+                        <div class="mb-3">
+                            <label for="newVehiclePlate" class="form-label">Matrícula</label>
+                            <input type="text" class="form-control" id="newVehiclePlate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newVehicleCompany" class="form-label">Empresa</label>
+                            <input type="text" class="form-control" id="newVehicleCompany" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newVehicleType" class="form-label">Tipo de Vehículo</label>
+                            <select class="form-select" id="newVehicleType" required>
+                                <option value="" selected disabled>Seleccione un tipo</option>
+                                <option value="Coche">Coche</option>
+                                <option value="Furgoneta">Furgoneta</option>
+                                <option value="Camión">Camión</option>
+                                <option value="Motocicleta">Motocicleta</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-vehicle" id="saveNewVehicleBtn">Guardar Vehículo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-5">
+        <div class="container text-center">
+            <p class="mb-0">Sistema de Control de Llaves y Vehículos &copy; 2023</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ===========================================
+        // CONFIGURACIÓN DE FIREBASE
+        // ===========================================
+        
+        // PASO 1: Crear un proyecto en Firebase Console (https://console.firebase.google.com)
+        // PASO 2: Habilitar Firestore Database en modo de prueba
+        // PASO 3: Obtener la configuración de Firebase y reemplazar los valores aquí:
+        
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            authDomain: "TU_PROYECTO.firebaseapp.com",
+            projectId: "TU_PROYECTO_ID",
+            storageBucket: "TU_PROYECTO.appspot.com",
+            messagingSenderId: "TU_SENDER_ID",
+            appId: "TU_APP_ID"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // ===========================================
+        // DATOS INICIALES
+        // ===========================================
+        
+        // Datos de las llaves
+        const keys = [
+            { id: 1, name: "Economato", status: "available" },
+            { id: 2, name: "Restaurante babbo american grill", status: "available" },
+            // ... (el resto de las llaves del código original)
+        ];
+
+        // Historial de movimientos de llaves
+        let movements = JSON.parse(localStorage.getItem('keyMovements')) || [];
+
+        // Datos de vehículos (se cargarán desde Firebase)
+        let vehicles = [];
+        let vehicleMovements = [];
+
+        // ===========================================
+        // FUNCIONES PARA VEHÍCULOS
+        // ===========================================
+
+        // Cargar vehículos desde Firebase
+        async function loadVehicles() {
+            try {
+                const snapshot = await db.collection('vehicles').get();
+                vehicles = [];
+                snapshot.forEach(doc => {
+                    vehicles.push({ id: doc.id, ...doc.data() });
+                });
+                updateVehicleStats();
+                populateVehiclePlateSelect();
+            } catch (error) {
+                console.error("Error cargando vehículos:", error);
+            }
+        }
+
+        // Cargar movimientos de vehículos desde Firebase
+        async function loadVehicleMovements() {
+            try {
+                const snapshot = await db.collection('vehicleMovements').orderBy('timestamp', 'desc').get();
+                vehicleMovements = [];
+                snapshot.forEach(doc => {
+                    vehicleMovements.push({ id: doc.id, ...doc.data() });
+                });
+                loadVehicleMovementsTable();
+                updateVehicleStats();
+            } catch (error) {
+                console.error("Error cargando movimientos de vehículos:", error);
+            }
+        }
+
+        // Guardar un nuevo vehículo en Firebase
+        async function saveNewVehicle(vehicleData) {
+            try {
+                await db.collection('vehicles').add(vehicleData);
+                await loadVehicles();
+                alert('Vehículo guardado correctamente');
+                document.getElementById('newVehicleForm').reset();
+                bootstrap.Modal.getInstance(document.getElementById('addVehicleModal')).hide();
+            } catch (error) {
+                console.error("Error guardando vehículo:", error);
+                alert('Error al guardar el vehículo');
+            }
+        }
+
+        // Registrar movimiento de vehículo
+        async function registerVehicleMovement(movementData) {
+            try {
+                await db.collection('vehicleMovements').add(movementData);
+                await loadVehicleMovements();
+                alert('Movimiento registrado correctamente');
+                document.getElementById('vehicleForm').reset();
+            } catch (error) {
+                console.error("Error registrando movimiento:", error);
+                alert('Error al registrar el movimiento');
+            }
+        }
+
+        // Actualizar movimiento de vehículo (salida)
+        async function updateVehicleMovement(movementId, exitData) {
+            try {
+                await db.collection('vehicleMovements').doc(movementId).update(exitData);
+                await loadVehicleMovements();
+            } catch (error) {
+                console.error("Error actualizando movimiento:", error);
+                alert('Error al registrar la salida');
+            }
+        }
+
+        // Rellenar automáticamente la empresa al introducir la matrícula
+        function autoFillCompany() {
+            const plate = document.getElementById('vehiclePlate').value.toUpperCase();
+            const vehicle = vehicles.find(v => v.plate === plate);
+            if (vehicle) {
+                document.getElementById('vehicleCompany').value = vehicle.company;
+            } else {
+                document.getElementById('vehicleCompany').value = '';
+            }
+        }
+
+        // Poblar el select de matrículas en el formulario
+        function populateVehiclePlateSelect() {
+            const plateInput = document.getElementById('vehiclePlate');
+            // Limpiar datalist si existe
+            const existingDatalist = document.getElementById('vehiclePlatesList');
+            if (existingDatalist) {
+                existingDatalist.remove();
+            }
+            
+            // Crear datalist para autocompletar
+            const datalist = document.createElement('datalist');
+            datalist.id = 'vehiclePlatesList';
+            
+            vehicles.forEach(vehicle => {
+                const option = document.createElement('option');
+                option.value = vehicle.plate;
+                datalist.appendChild(option);
+            });
+            
+            document.body.appendChild(datalist);
+            plateInput.setAttribute('list', 'vehiclePlatesList');
+        }
+
+        // Cargar tabla de movimientos de vehículos
+        function loadVehicleMovementsTable(filter = 'all') {
+            const tbody = document.querySelector('#vehicleMovementsTable tbody');
+            tbody.innerHTML = '';
+            
+            let filteredMovements = vehicleMovements;
+            
+            if (filter === 'today') {
+                const today = new Date().toDateString();
+                filteredMovements = vehicleMovements.filter(m => 
+                    new Date(m.timestamp).toDateString() === today
+                );
+            }
+            
+            if (filteredMovements.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="6" class="text-center">No hay movimientos registrados</td>`;
+                tbody.appendChild(row);
+                return;
+            }
+            
+            filteredMovements.forEach(movement => {
+                const row = document.createElement('tr');
+                const date = new Date(movement.timestamp);
+                const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                
+                // Crear botón de salida con evento directamente
+                const exitButton = movement.status === 'parked' ? 
+                    `<button class="btn btn-sm btn-success exit-btn" data-movement-id="${movement.id}">
+                        <i class="bi bi-box-arrow-right me-1"></i>Registrar Salida
+                    </button>` : 
+                    `<span class="text-muted">Salida: ${movement.exitTimestamp ? new Date(movement.exitTimestamp).toLocaleTimeString() : ''}</span>`;
+                
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${movement.plate}</td>
+                    <td>${movement.company}</td>
+                    <td>${movement.driver}</td>
+                    <td>
+                        <span class="vehicle-status ${movement.status === 'parked' ? 'status-parked' : 'status-exited'}">
+                            ${movement.status === 'parked' ? 'En Parqueadero' : 'Salida Registrada'}
+                        </span>
+                    </td>
+                    <td>${exitButton}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            // Agregar event listeners a los botones de salida
+            document.querySelectorAll('.exit-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const movementId = this.getAttribute('data-movement-id');
+                    registerVehicleExit(movementId);
+                });
+            });
+        }
+
+        // Registrar salida de vehículo
+        function registerVehicleExit(movementId) {
+            const exitData = {
+                status: 'exited',
+                exitTimestamp: new Date().toISOString()
+            };
+            updateVehicleMovement(movementId, exitData);
+        }
+
+        // Actualizar estadísticas de vehículos
+        function updateVehicleStats() {
+            const totalVehicles = vehicles.length;
+            const parkedVehicles = vehicleMovements.filter(m => m.status === 'parked').length;
+            
+            const today = new Date().toDateString();
+            const exitedToday = vehicleMovements.filter(m => 
+                m.status === 'exited' && new Date(m.exitTimestamp).toDateString() === today
+            ).length;
+            
+            const todayMovements = vehicleMovements.filter(m => 
+                new Date(m.timestamp).toDateString() === today
+            ).length;
+            
+            document.getElementById('totalVehicles').textContent = totalVehicles;
+            document.getElementById('parkedVehicles').textContent = parkedVehicles;
+            document.getElementById('exitedVehicles').textContent = exitedToday;
+            document.getElementById('vehicleMovements').textContent = todayMovements;
+            
+            document.getElementById('parkedBadge').textContent = parkedVehicles;
+            document.getElementById('exitedBadge').textContent = exitedToday;
+        }
+
+        // Filtrar movimientos de vehículos
+        function filterVehicleMovements(type) {
+            loadVehicleMovementsTable(type);
+            
+            // Actualizar botones activos
+            document.getElementById('filterVehicleToday').classList.toggle('btn-primary', type === 'today');
+            document.getElementById('filterVehicleToday').classList.toggle('btn-outline-primary', type !== 'today');
+            document.getElementById('filterVehicleAll').classList.toggle('btn-primary', type === 'all');
+            document.getElementById('filterVehicleAll').classList.toggle('btn-outline-secondary', type !== 'all');
+        }
+
+        // Generar PDF de movimientos de vehículos del día
+        function generateVehicleTodayPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Título del reporte
+            doc.setFontSize(16);
+            doc.text('Sistema de Control de Vehículos', 20, 20);
+            doc.setFontSize(12);
+            doc.text(`Reporte del día: ${new Date().toLocaleDateString()}`, 20, 30);
+            doc.text(`Generado: ${new Date().toLocaleString()}`, 20, 40);
+            
+            // Filtrar movimientos de hoy
+            const today = new Date().toDateString();
+            const todayMovements = vehicleMovements.filter(m => 
+                new Date(m.timestamp).toDateString() === today
+            );
+            
+            if (todayMovements.length === 0) {
+                doc.text('No hay movimientos para hoy', 20, 60);
+            } else {
+                // Crear tabla
+                const tableData = todayMovements.map(m => {
+                    const date = new Date(m.timestamp);
+                    const exitTime = m.exitTimestamp ? new Date(m.exitTimestamp).toLocaleTimeString() : '-';
+                    return [
+                        `${date.toLocaleTimeString()}`,
+                        m.plate,
+                        m.company,
+                        m.driver,
+                        m.status === 'parked' ? 'En Parqueadero' : 'Salida Registrada',
+                        exitTime
+                    ];
+                });
+                
+                doc.autoTable({
+                    startY: 50,
+                    head: [['Hora Entrada', 'Matrícula', 'Empresa', 'Conductor', 'Estado', 'Hora Salida']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [39, 174, 96] }
+                });
+            }
+            
+            // Guardar PDF
+            const fileName = `vehiculos_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(fileName);
+        }
+
+        // Generar PDF de movimientos de vehículos por fecha
+        function generateVehicleDatePDF() {
+            const reportDate = document.getElementById('vehicleReportDate').value;
+            
+            if (!reportDate) {
+                alert('Por favor, seleccione una fecha');
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Título del reporte
+            doc.setFontSize(16);
+            doc.text('Sistema de Control de Vehículos', 20, 20);
+            doc.setFontSize(12);
+            doc.text(`Reporte del día: ${new Date(reportDate).toLocaleDateString()}`, 20, 30);
+            doc.text(`Generado: ${new Date().toLocaleString()}`, 20, 40);
+            
+            // Filtrar movimientos por fecha seleccionada
+            const selectedDate = new Date(reportDate).toDateString();
+            const filteredMovements = vehicleMovements.filter(m => 
+                new Date(m.timestamp).toDateString() === selectedDate
+            );
+            
+            if (filteredMovements.length === 0) {
+                doc.text('No hay movimientos para esta fecha', 20, 60);
+            } else {
+                // Crear tabla
+                const tableData = filteredMovements.map(m => {
+                    const date = new Date(m.timestamp);
+                    const exitTime = m.exitTimestamp ? new Date(m.exitTimestamp).toLocaleTimeString() : '-';
+                    return [
+                        `${date.toLocaleTimeString()}`,
+                        m.plate,
+                        m.company,
+                        m.driver,
+                        m.status === 'parked' ? 'En Parqueadero' : 'Salida Registrada',
+                        exitTime
+                    ];
+                });
+                
+                doc.autoTable({
+                    startY: 50,
+                    head: [['Hora Entrada', 'Matrícula', 'Empresa', 'Conductor', 'Estado', 'Hora Salida']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [39, 174, 96] }
+                });
+            }
+            
+            // Guardar PDF
+            const fileName = `vehiculos_${reportDate}.pdf`;
+            doc.save(fileName);
+        }
+
+        // ===========================================
+        // INICIALIZACIÓN DE LA APLICACIÓN
+        // ===========================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        async function initializeApp() {
+            // Cargar opciones de llaves en el select
+            const keySelect = document.getElementById('keySelect');
+            keys.forEach(key => {
+                const option = document.createElement('option');
+                option.value = key.id;
+                option.textContent = `${key.id} - ${key.name}`;
+                keySelect.appendChild(option);
+            });
+
+            // Actualizar estadísticas de llaves
+            updateStats();
+
+            // Cargar historial de movimientos de llaves
+            loadMovements();
+
+            // Cargar datos de vehículos desde Firebase
+            await loadVehicles();
+            await loadVehicleMovements();
+
+            // Configurar eventos para llaves
+            document.getElementById('keyForm').addEventListener('submit', handleFormSubmit);
+            document.getElementById('filterToday').addEventListener('click', () => filterMovements('today'));
+            document.getElementById('filterAll').addEventListener('click', () => filterMovements('all'));
+            document.getElementById('generateTodayReport').addEventListener('click', generateTodayPDF);
+            document.getElementById('generateDateReport').addEventListener('click', generateDatePDF);
+            
+            // Configurar eventos para vehículos
+            document.getElementById('vehicleForm').addEventListener('submit', handleVehicleFormSubmit);
+            document.getElementById('vehiclePlate').addEventListener('input', autoFillCompany);
+            document.getElementById('filterVehicleToday').addEventListener('click', () => filterVehicleMovements('today'));
+            document.getElementById('filterVehicleAll').addEventListener('click', () => filterVehicleMovements('all'));
+            document.getElementById('generateVehicleTodayReport').addEventListener('click', generateVehicleTodayPDF);
+            document.getElementById('generateVehicleDateReport').addEventListener('click', generateVehicleDatePDF);
+            document.getElementById('saveNewVehicleBtn').addEventListener('click', handleNewVehicleSubmit);
+            
+            // Establecer fecha actual por defecto en los selectores de fecha
+            document.getElementById('reportDate').valueAsDate = new Date();
+            document.getElementById('vehicleReportDate').valueAsDate = new Date();
+        }
+
+        // ===========================================
+        // MANEJADORES DE FORMULARIOS
+        // ===========================================
+
+        // Manejar envío del formulario de vehículos
+        async function handleVehicleFormSubmit(e) {
+            e.preventDefault();
+            
+            const plate = document.getElementById('vehiclePlate').value.toUpperCase();
+            const company = document.getElementById('vehicleCompany').value;
+            const driver = document.getElementById('vehicleDriver').value;
+            const type = document.getElementById('vehicleType').value;
+            const notes = document.getElementById('vehicleNotes').value;
+            
+            // Verificar si el vehículo ya está en el parqueadero
+            const alreadyParked = vehicleMovements.some(m => m.plate === plate && m.status === 'parked');
+            if (alreadyParked) {
+                alert('Error: Este vehículo ya está registrado en el parqueadero');
+                return;
+            }
+            
+            // Registrar movimiento
+            const movement = {
+                plate: plate,
+                company: company,
+                driver: driver,
+                type: type,
+                notes: notes,
+                status: 'parked',
+                timestamp: new Date().toISOString(),
+                exitTimestamp: null
+            };
+            
+            await registerVehicleMovement(movement);
+        }
+
+        // Manejar envío del formulario de nuevo vehículo
+        function handleNewVehicleSubmit() {
+            const plate = document.getElementById('newVehiclePlate').value.toUpperCase();
+            const company = document.getElementById('newVehicleCompany').value;
+            const type = document.getElementById('newVehicleType').value;
+            
+            if (!plate || !company || !type) {
+                alert('Por favor, complete todos los campos obligatorios');
+                return;
+            }
+            
+            // Verificar si la matrícula ya existe
+            const existingVehicle = vehicles.find(v => v.plate === plate);
+            if (existingVehicle) {
+                alert('Error: Ya existe un vehículo con esta matrícula');
+                return;
+            }
+            
+            const vehicleData = {
+                plate: plate,
+                company: company,
+                type: type
+            };
+            
+            saveNewVehicle(vehicleData);
+        }
+
+        // ===========================================
+        // FUNCIONES ORIGINALES DEL SISTEMA DE LLAVES
+        // ===========================================
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const keyId = parseInt(document.getElementById('keySelect').value);
+            const personName = document.getElementById('personName').value;
+            const notes = document.getElementById('notes').value;
+            
+            // Validar que la llave existe
+            const key = keys.find(k => k.id === keyId);
+            if (!key) {
+                alert('Error: Llave no encontrada');
+                return;
+            }
+            
+            // Validar que la llave está disponible
+            if (key.status !== 'available') {
+                alert('Error: Esta llave ya está prestada');
+                return;
+            }
+            
+            // Registrar movimiento
+            const movement = {
+                id: Date.now(),
+                keyId: keyId,
+                keyName: key.name,
+                personName: personName,
+                notes: notes,
+                status: 'prestada',
+                timestamp: new Date().toISOString(),
+                returnTimestamp: null
+            };
+            
+            movements.unshift(movement);
+            localStorage.setItem('keyMovements', JSON.stringify(movements));
+            
+            // Actualizar estado de la llave
+            key.status = 'borrowed';
+            
+            // Limpiar formulario
+            document.getElementById('keyForm').reset();
+            
+            // Actualizar interfaz
+            updateStats();
+            loadMovements();
+            
+            // Mostrar mensaje de éxito
+            alert(`Retirada registrada correctamente: Llave ${keyId} - ${key.name} retirada por ${personName}`);
+        }
+
+        function loadMovements(filter = 'all') {
+            const tbody = document.querySelector('#movementsTable tbody');
+            tbody.innerHTML = '';
+            
+            let filteredMovements = movements;
+            
+            if (filter === 'today') {
+                const today = new Date().toDateString();
+                filteredMovements = movements.filter(m => 
+                    new Date(m.timestamp).toDateString() === today
+                );
+            }
+            
+            if (filteredMovements.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="5" class="text-center">No hay movimientos registrados</td>`;
+                tbody.appendChild(row);
+                return;
+            }
+            
+            filteredMovements.forEach(movement => {
+                const row = document.createElement('tr');
+                const date = new Date(movement.timestamp);
+                const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                
+                // Crear botón de entregada con evento directamente
+                const entregadaButton = movement.status === 'prestada' ? 
+                    `<button class="btn btn-sm btn-success entregada-btn" data-movement-id="${movement.id}">
+                        <i class="bi bi-check-lg me-1"></i>Entregada
+                    </button>` : 
+                    `<span class="text-muted">Devuelta ${movement.returnTimestamp ? new Date(movement.returnTimestamp).toLocaleDateString() : ''}</span>`;
+                
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${movement.keyId} - ${movement.keyName}</td>
+                    <td>${movement.personName}</td>
+                    <td>
+                        <span class="key-status ${movement.status === 'prestada' ? 'status-borrowed' : 'status-available'}">
+                            ${movement.status === 'prestada' ? 'Prestada' : 'Devuelta'}
+                        </span>
+                    </td>
+                    <td>${entregadaButton}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            // Agregar event listeners a los botones de entregada
+            document.querySelectorAll('.entregada-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const movementId = parseInt(this.getAttribute('data-movement-id'));
+                    markAsReturned(movementId);
+                });
+            });
+        }
+
+        function markAsReturned(movementId) {
+            const movement = movements.find(m => m.id === movementId);
+            if (movement) {
+                movement.status = 'devuelta';
+                movement.returnTimestamp = new Date().toISOString();
+                
+                // Actualizar estado de la llave
+                const key = keys.find(k => k.id === movement.keyId);
+                if (key) {
+                    key.status = 'available';
+                }
+                
+                localStorage.setItem('keyMovements', JSON.stringify(movements));
+                loadMovements();
+                updateStats();
+            }
+        }
+
+        function filterMovements(type) {
+            loadMovements(type);
+            
+            // Actualizar botones activos
+            document.getElementById('filterToday').classList.toggle('btn-primary', type === 'today');
+            document.getElementById('filterToday').classList.toggle('btn-outline-primary', type !== 'today');
+            document.getElementById('filterAll').classList.toggle('btn-primary', type === 'all');
+            document.getElementById('filterAll').classList.toggle('btn-outline-secondary', type !== 'all');
+        }
+
+        function updateStats() {
+            const totalKeys = keys.length;
+            const availableKeys = keys.filter(k => k.status === 'available').length;
+            const borrowedKeys = keys.filter(k => k.status === 'borrowed').length;
+            
+            const today = new Date().toDateString();
+            const todayMovements = movements.filter(m => 
+                new Date(m.timestamp).toDateString() === today
+            ).length;
+            
+            document.getElementById('totalKeys').textContent = totalKeys;
+            document.getElementById('availableKeys').textContent = availableKeys;
+            document.getElementById('borrowedKeys').textContent = borrowedKeys;
+            document.getElementById('todayMovements').textContent = todayMovements;
+            
+            document.getElementById('availableBadge').textContent = availableKeys;
+            document.getElementById('borrowedBadge').textContent = borrowedKeys;
+        }
+
+        function generateTodayPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Título del reporte
+            doc.setFontSize(16);
+            doc.text('Sistema de Control de Llaves', 20, 20);
+            doc.setFontSize(12);
+            doc.text(`Reporte del día: ${new Date().toLocaleDateString()}`, 20, 30);
+            doc.text(`Generado: ${new Date().toLocaleString()}`, 20, 40);
+            
+            // Filtrar movimientos de hoy
+            const today = new Date().toDateString();
+            const todayMovements = movements.filter(m => 
+                new Date(m.timestamp).toDateString() === today
+            );
+            
+            if (todayMovements.length === 0) {
+                doc.text('No hay movimientos para hoy', 20, 60);
+            } else {
+                // Crear tabla
+                const tableData = todayMovements.map(m => {
+                    const date = new Date(m.timestamp);
+                    return [
+                        `${date.toLocaleTimeString()}`,
+                        `${m.keyId} - ${m.keyName}`,
+                        m.personName,
+                        m.status === 'prestada' ? 'Prestada' : 'Devuelta'
+                    ];
+                });
+                
+                doc.autoTable({
+                    startY: 50,
+                    head: [['Hora', 'Llave', 'Retirada por', 'Estado']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [44, 62, 80] }
+                });
+            }
+            
+            // Guardar PDF
+            const fileName = `movimientos_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(fileName);
+        }
+
+        function generateDatePDF() {
+            const reportDate = document.getElementById('reportDate').value;
+            
+            if (!reportDate) {
+                alert('Por favor, seleccione una fecha');
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Título del reporte
+            doc.setFontSize(16);
+            doc.text('Sistema de Control de Llaves', 20, 20);
+            doc.setFontSize(12);
+            doc.text(`Reporte del día: ${new Date(reportDate).toLocaleDateString()}`, 20, 30);
+            doc.text(`Generado: ${new Date().toLocaleString()}`, 20, 40);
+            
+            // Filtrar movimientos por fecha seleccionada
+            const selectedDate = new Date(reportDate).toDateString();
+            const filteredMovements = movements.filter(m => 
+                new Date(m.timestamp).toDateString() === selectedDate
+            );
+            
+            if (filteredMovements.length === 0) {
+                doc.text('No hay movimientos para esta fecha', 20, 60);
+            } else {
+                // Crear tabla
+                const tableData = filteredMovements.map(m => {
+                    const date = new Date(m.timestamp);
+                    return [
+                        `${date.toLocaleTimeString()}`,
+                        `${m.keyId} - ${m.keyName}`,
+                        m.personName,
+                        m.status === 'prestada' ? 'Prestada' : 'Devuelta'
+                    ];
+                });
+                
+                doc.autoTable({
+                    startY: 50,
+                    head: [['Hora', 'Llave', 'Retirada por', 'Estado']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [44, 62, 80] }
+                });
+            }
+            
+            // Guardar PDF
+            const fileName = `movimientos_${reportDate}.pdf`;
+            doc.save(fileName);
+        }
+    </script>
+</body>
+</html>
