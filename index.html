@@ -17,7 +17,9 @@
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
             --accent-color: #e74c3c;
-            --vehicle-color: #27ae60;
+            --vehicle-color: #9b59b6;
+            --report-color: #e67e22;
+            --filter-color: #16a085;
         }
         
         body {
@@ -60,6 +62,16 @@
         
         .btn-vehicle {
             background-color: var(--vehicle-color);
+            border: none;
+        }
+        
+        .btn-report {
+            background-color: var(--report-color);
+            border: none;
+        }
+        
+        .btn-filter {
+            background-color: var(--filter-color);
             border: none;
         }
         
@@ -300,7 +312,7 @@
                                     <i class="bi bi-clock-history me-2"></i>Historial de Movimientos
                                 </div>
                                 <div>
-                                    <button class="btn btn-sm btn-outline-primary" id="filterToday">
+                                    <button class="btn btn-sm btn-filter" id="filterToday">
                                         <i class="bi bi-calendar-day me-1"></i>Hoy
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary" id="filterAll">
@@ -339,7 +351,7 @@
                                         <div class="report-section p-3 mb-3">
                                             <h5 class="mb-3">Reporte del Día</h5>
                                             <p class="text-muted">Genera un PDF con todos los movimientos de hoy</p>
-                                            <button class="btn btn-primary w-100" id="generateTodayReport">
+                                            <button class="btn btn-report w-100" id="generateTodayReport">
                                                 <i class="bi bi-file-earmark-pdf me-2"></i>Generar PDF del Día
                                             </button>
                                         </div>
@@ -352,7 +364,7 @@
                                                 <label for="reportDate" class="form-label">Seleccionar Fecha</label>
                                                 <input type="date" class="form-control" id="reportDate">
                                             </div>
-                                            <button class="btn btn-primary w-100" id="generateDateReport">
+                                            <button class="btn btn-report w-100" id="generateDateReport">
                                                 <i class="bi bi-file-earmark-pdf me-2"></i>Generar PDF por Fecha
                                             </button>
                                         </div>
@@ -412,21 +424,6 @@
                                         <input type="text" class="form-control" id="vehicleCompany" required>
                                     </div>
                                     <div class="mb-3">
-                                        <label for="vehicleDriver" class="form-label">Conductor</label>
-                                        <input type="text" class="form-control" id="vehicleDriver" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="vehicleType" class="form-label">Tipo de Vehículo</label>
-                                        <select class="form-select" id="vehicleType" required>
-                                            <option value="" selected disabled>Seleccione un tipo</option>
-                                            <option value="Coche">Coche</option>
-                                            <option value="Furgoneta">Furgoneta</option>
-                                            <option value="Camión">Camión</option>
-                                            <option value="Motocicleta">Motocicleta</option>
-                                            <option value="Otro">Otro</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
                                         <label for="vehicleNotes" class="form-label">Observaciones (opcional)</label>
                                         <textarea class="form-control" id="vehicleNotes" rows="2"></textarea>
                                     </div>
@@ -466,7 +463,7 @@
                                     <i class="bi bi-clock-history me-2"></i>Historial de Vehículos
                                 </div>
                                 <div>
-                                    <button class="btn btn-sm btn-outline-primary" id="filterVehicleToday">
+                                    <button class="btn btn-sm btn-filter" id="filterVehicleToday">
                                         <i class="bi bi-calendar-day me-1"></i>Hoy
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary" id="filterVehicleAll">
@@ -482,7 +479,6 @@
                                                 <th>Fecha/Hora</th>
                                                 <th>Matrícula</th>
                                                 <th>Empresa</th>
-                                                <th>Conductor</th>
                                                 <th>Estado</th>
                                                 <th>Acciones</th>
                                             </tr>
@@ -506,7 +502,7 @@
                                         <div class="report-section p-3 mb-3">
                                             <h5 class="mb-3">Reporte del Día</h5>
                                             <p class="text-muted">Genera un PDF con todos los movimientos de hoy</p>
-                                            <button class="btn btn-vehicle w-100" id="generateVehicleTodayReport">
+                                            <button class="btn btn-report w-100" id="generateVehicleTodayReport">
                                                 <i class="bi bi-file-earmark-pdf me-2"></i>Generar PDF del Día
                                             </button>
                                         </div>
@@ -519,7 +515,7 @@
                                                 <label for="vehicleReportDate" class="form-label">Seleccionar Fecha</label>
                                                 <input type="date" class="form-control" id="vehicleReportDate">
                                             </div>
-                                            <button class="btn btn-vehicle w-100" id="generateVehicleDateReport">
+                                            <button class="btn btn-report w-100" id="generateVehicleDateReport">
                                                 <i class="bi bi-file-earmark-pdf me-2"></i>Generar PDF por Fecha
                                             </button>
                                         </div>
@@ -551,17 +547,6 @@
                             <label for="newVehicleCompany" class="form-label">Empresa</label>
                             <input type="text" class="form-control" id="newVehicleCompany" required>
                         </div>
-                        <div class="mb-3">
-                            <label for="newVehicleType" class="form-label">Tipo de Vehículo</label>
-                            <select class="form-select" id="newVehicleType" required>
-                                <option value="" selected disabled>Seleccione un tipo</option>
-                                <option value="Coche">Coche</option>
-                                <option value="Furgoneta">Furgoneta</option>
-                                <option value="Camión">Camión</option>
-                                <option value="Motocicleta">Motocicleta</option>
-                                <option value="Otro">Otro</option>
-                            </select>
-                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -590,12 +575,12 @@
         // PASO 3: Obtener la configuración de Firebase y reemplazar los valores aquí:
         
         const firebaseConfig = {
-            apiKey: "AIzaSyCNHnsj6bVwpX-87xr4JkUtYo5Omng6PHo",
-            authDomain: "registrojt-5538c.firebaseapp.com",
-            projectId: "registrojt-5538c",
-            storageBucket: "registrojt-5538c.firebasestorage.app",
-            messagingSenderId: "305055514477",
-            appId: "1:305055514477:web:2bb66d8429ae7152c6a464"
+            apiKey: "TU_API_KEY",
+            authDomain: "TU_PROYECTO.firebaseapp.com",
+            projectId: "TU_PROYECTO_ID",
+            storageBucket: "TU_PROYECTO.appspot.com",
+            messagingSenderId: "TU_SENDER_ID",
+            appId: "TU_APP_ID"
         };
 
         // Inicializar Firebase
@@ -673,11 +658,11 @@
             try {
                 await db.collection('vehicleMovements').add(movementData);
                 await loadVehicleMovements();
-                alert('Movimiento registrado correctamente');
+                alert('Entrada registrada correctamente');
                 document.getElementById('vehicleForm').reset();
             } catch (error) {
                 console.error("Error registrando movimiento:", error);
-                alert('Error al registrar el movimiento');
+                alert('Error al registrar la entrada');
             }
         }
 
@@ -742,7 +727,7 @@
             
             if (filteredMovements.length === 0) {
                 const row = document.createElement('tr');
-                row.innerHTML = `<td colspan="6" class="text-center">No hay movimientos registrados</td>`;
+                row.innerHTML = `<td colspan="5" class="text-center">No hay movimientos registrados</td>`;
                 tbody.appendChild(row);
                 return;
             }
@@ -763,7 +748,6 @@
                     <td>${formattedDate}</td>
                     <td>${movement.plate}</td>
                     <td>${movement.company}</td>
-                    <td>${movement.driver}</td>
                     <td>
                         <span class="vehicle-status ${movement.status === 'parked' ? 'status-parked' : 'status-exited'}">
                             ${movement.status === 'parked' ? 'En Parqueadero' : 'Salida Registrada'}
@@ -821,7 +805,7 @@
             loadVehicleMovementsTable(type);
             
             // Actualizar botones activos
-            document.getElementById('filterVehicleToday').classList.toggle('btn-primary', type === 'today');
+            document.getElementById('filterVehicleToday').classList.toggle('btn-filter', type === 'today');
             document.getElementById('filterVehicleToday').classList.toggle('btn-outline-primary', type !== 'today');
             document.getElementById('filterVehicleAll').classList.toggle('btn-primary', type === 'all');
             document.getElementById('filterVehicleAll').classList.toggle('btn-outline-secondary', type !== 'all');
@@ -856,7 +840,6 @@
                         `${date.toLocaleTimeString()}`,
                         m.plate,
                         m.company,
-                        m.driver,
                         m.status === 'parked' ? 'En Parqueadero' : 'Salida Registrada',
                         exitTime
                     ];
@@ -864,10 +847,10 @@
                 
                 doc.autoTable({
                     startY: 50,
-                    head: [['Hora Entrada', 'Matrícula', 'Empresa', 'Conductor', 'Estado', 'Hora Salida']],
+                    head: [['Hora Entrada', 'Matrícula', 'Empresa', 'Estado', 'Hora Salida']],
                     body: tableData,
                     theme: 'grid',
-                    headStyles: { fillColor: [39, 174, 96] }
+                    headStyles: { fillColor: [155, 89, 182] }
                 });
             }
             
@@ -912,7 +895,6 @@
                         `${date.toLocaleTimeString()}`,
                         m.plate,
                         m.company,
-                        m.driver,
                         m.status === 'parked' ? 'En Parqueadero' : 'Salida Registrada',
                         exitTime
                     ];
@@ -920,10 +902,10 @@
                 
                 doc.autoTable({
                     startY: 50,
-                    head: [['Hora Entrada', 'Matrícula', 'Empresa', 'Conductor', 'Estado', 'Hora Salida']],
+                    head: [['Hora Entrada', 'Matrícula', 'Empresa', 'Estado', 'Hora Salida']],
                     body: tableData,
                     theme: 'grid',
-                    headStyles: { fillColor: [39, 174, 96] }
+                    headStyles: { fillColor: [155, 89, 182] }
                 });
             }
             
@@ -991,8 +973,6 @@
             
             const plate = document.getElementById('vehiclePlate').value.toUpperCase();
             const company = document.getElementById('vehicleCompany').value;
-            const driver = document.getElementById('vehicleDriver').value;
-            const type = document.getElementById('vehicleType').value;
             const notes = document.getElementById('vehicleNotes').value;
             
             // Verificar si el vehículo ya está en el parqueadero
@@ -1006,8 +986,6 @@
             const movement = {
                 plate: plate,
                 company: company,
-                driver: driver,
-                type: type,
                 notes: notes,
                 status: 'parked',
                 timestamp: new Date().toISOString(),
@@ -1021,9 +999,8 @@
         function handleNewVehicleSubmit() {
             const plate = document.getElementById('newVehiclePlate').value.toUpperCase();
             const company = document.getElementById('newVehicleCompany').value;
-            const type = document.getElementById('newVehicleType').value;
             
-            if (!plate || !company || !type) {
+            if (!plate || !company) {
                 alert('Por favor, complete todos los campos obligatorios');
                 return;
             }
@@ -1037,8 +1014,7 @@
             
             const vehicleData = {
                 plate: plate,
-                company: company,
-                type: type
+                company: company
             };
             
             saveNewVehicle(vehicleData);
@@ -1175,7 +1151,7 @@
             loadMovements(type);
             
             // Actualizar botones activos
-            document.getElementById('filterToday').classList.toggle('btn-primary', type === 'today');
+            document.getElementById('filterToday').classList.toggle('btn-filter', type === 'today');
             document.getElementById('filterToday').classList.toggle('btn-outline-primary', type !== 'today');
             document.getElementById('filterAll').classList.toggle('btn-primary', type === 'all');
             document.getElementById('filterAll').classList.toggle('btn-outline-secondary', type !== 'all');
@@ -1298,5 +1274,4 @@
         }
     </script>
 </body>
-
 </html>
