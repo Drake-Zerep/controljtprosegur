@@ -169,6 +169,11 @@
         .nav-tabs .nav-link {
             color: var(--primary-color);
         }
+        
+        .autocomplete-highlight {
+            background-color: #e8f5e8 !important;
+            transition: background-color 0.5s ease;
+        }
     </style>
 </head>
 <body>
@@ -417,11 +422,14 @@
                                 <form id="vehicleForm">
                                     <div class="mb-3">
                                         <label for="vehiclePlate" class="form-label">Matrícula</label>
-                                        <input type="text" class="form-control" id="vehiclePlate" required>
+                                        <input type="text" class="form-control" id="vehiclePlate" required 
+                                               placeholder="Ej: ABC123">
+                                        <div class="form-text">La empresa se autocompletará al escribir la matrícula</div>
                                     </div>
                                     <div class="mb-3">
                                         <label for="vehicleCompany" class="form-label">Empresa</label>
-                                        <input type="text" class="form-control" id="vehicleCompany" required>
+                                        <input type="text" class="form-control" id="vehicleCompany" required
+                                               placeholder="Se autocompletará con la matrícula">
                                     </div>
                                     <div class="mb-3">
                                         <label for="vehicleNotes" class="form-label">Observaciones (opcional)</label>
@@ -442,6 +450,13 @@
                             <div class="card-body">
                                 <button class="btn btn-outline-primary w-100 mb-3" id="addVehicleBtn" data-bs-toggle="modal" data-bs-target="#addVehicleModal">
                                     <i class="bi bi-plus-circle me-2"></i>Añadir Vehículo Nuevo
+                                </button>
+                                <!-- Botón temporal para pruebas -->
+                                <button class="btn btn-warning btn-sm w-100 mb-2" onclick="testAutoComplete()">
+                                    <i class="bi bi-bug me-1"></i>Probar Autocompletado
+                                </button>
+                                <button class="btn btn-info btn-sm w-100 mb-3" onclick="showCurrentState()">
+                                    <i class="bi bi-info-circle me-1"></i>Ver Estado del Sistema
                                 </button>
                                 <div class="d-flex justify-content-between mb-2">
                                     <span>En Parqueadero:</span>
@@ -567,25 +582,36 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // ===========================================
-        // CONFIGURACIÓN DE FIREBASE
+        // CONFIGURACIÓN DE FIREBASE CON VERIFICACIÓN
         // ===========================================
         
-        // PASO 1: Crear un proyecto en Firebase Console (https://console.firebase.google.com)
-        // PASO 2: Habilitar Firestore Database en modo de prueba
-        // PASO 3: Obtener la configuración de Firebase y reemplazar los valores aquí:
-        
         const firebaseConfig = {
-            apiKey: "TU_API_KEY",
-            authDomain: "TU_PROYECTO.firebaseapp.com",
-            projectId: "TU_PROYECTO_ID",
-            storageBucket: "TU_PROYECTO.appspot.com",
-            messagingSenderId: "TU_SENDER_ID",
-            appId: "TU_APP_ID"
+            apiKey: "AIzaSyCNHnsj6bVwpX-87xr4JkUtYo5Omng6PHo",
+            authDomain: "registrojt-5538c.firebaseapp.com",
+            projectId: "registrojt-5538c",
+            storageBucket: "registrojt-5538c.firebasestorage.app",
+            messagingSenderId: "305055514477",
+            appId: "1:305055514477:web:2bb66d8429ae7152c6a464"
         };
 
+        // Verificar configuración
+        console.log("🔧 Configurando Firebase...");
+        if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "TU_API_KEY") {
+            console.error("❌ ERROR: Configuración de Firebase no válida");
+            alert("Error: La configuración de Firebase no está completa. Revisa los valores de firebaseConfig.");
+        } else {
+            console.log("✅ Configuración Firebase OK");
+        }
+
         // Inicializar Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+        let db;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            console.log("✅ Firebase inicializado correctamente");
+        } catch (error) {
+            console.error("❌ Error inicializando Firebase:", error);
+        }
 
         // ===========================================
         // DATOS INICIALES
@@ -606,91 +632,179 @@
         let vehicleMovements = [];
 
         // ===========================================
-        // FUNCIONES PARA VEHÍCULOS
+        // FUNCIONES MEJORADAS PARA VEHÍCULOS
         // ===========================================
+
+        // Función de prueba de conexión
+        async function testFirebaseConnection() {
+            try {
+                console.log("🔌 Probando conexión con Firebase...");
+                
+                // Intentar leer una colección
+                const testSnapshot = await db.collection('vehicles').limit(1).get();
+                console.log("✅ Conexión a Firebase exitosa");
+                console.log("Documentos en vehicles:", testSnapshot.size);
+                
+                return true;
+            } catch (error) {
+                console.error("❌ Error de conexión a Firebase:", error);
+                return false;
+            }
+        }
 
         // Cargar vehículos desde Firebase
         async function loadVehicles() {
             try {
+                console.log("🔄 Cargando vehículos desde Firebase...");
                 const snapshot = await db.collection('vehicles').get();
                 vehicles = [];
+                
                 snapshot.forEach(doc => {
-                    vehicles.push({ id: doc.id, ...doc.data() });
+                    const vehicleData = doc.data();
+                    console.log(`🚗 Vehículo cargado: ${vehicleData.plate} - ${vehicleData.company} (ID: ${doc.id})`);
+                    vehicles.push({ id: doc.id, ...vehicleData });
                 });
+                
+                console.log(`✅ ${vehicles.length} vehículos cargados correctamente`);
                 updateVehicleStats();
                 populateVehiclePlateSelect();
+                
             } catch (error) {
-                console.error("Error cargando vehículos:", error);
+                console.error("❌ Error cargando vehículos:", error);
+                alert("Error al cargar los vehículos. Revisa la consola para más detalles.");
             }
         }
 
         // Cargar movimientos de vehículos desde Firebase
         async function loadVehicleMovements() {
             try {
+                console.log("🔄 Cargando movimientos de vehículos desde Firebase...");
                 const snapshot = await db.collection('vehicleMovements').orderBy('timestamp', 'desc').get();
                 vehicleMovements = [];
+                
                 snapshot.forEach(doc => {
-                    vehicleMovements.push({ id: doc.id, ...doc.data() });
+                    const movementData = doc.data();
+                    console.log(`📝 Movimiento cargado: ${movementData.plate} - ${movementData.status}`);
+                    vehicleMovements.push({ id: doc.id, ...movementData });
                 });
+                
+                console.log(`✅ ${vehicleMovements.length} movimientos cargados correctamente`);
                 loadVehicleMovementsTable();
                 updateVehicleStats();
+                
             } catch (error) {
-                console.error("Error cargando movimientos de vehículos:", error);
+                console.error("❌ Error cargando movimientos de vehículos:", error);
             }
         }
 
         // Guardar un nuevo vehículo en Firebase
         async function saveNewVehicle(vehicleData) {
             try {
-                await db.collection('vehicles').add(vehicleData);
+                console.log("💾 Guardando vehículo en Firebase:", vehicleData);
+                
+                const docRef = await db.collection('vehicles').add(vehicleData);
+                console.log(`✅ Vehículo guardado con ID: ${docRef.id}`);
+                
+                // Recargar la lista para verificar
                 await loadVehicles();
-                alert('Vehículo guardado correctamente');
+                
+                alert('✅ Vehículo guardado correctamente en la base de datos');
                 document.getElementById('newVehicleForm').reset();
                 bootstrap.Modal.getInstance(document.getElementById('addVehicleModal')).hide();
+                
             } catch (error) {
-                console.error("Error guardando vehículo:", error);
-                alert('Error al guardar el vehículo');
+                console.error("❌ Error guardando vehículo:", error);
+                alert('❌ Error al guardar el vehículo. Revisa la consola para más detalles.');
             }
         }
 
         // Registrar movimiento de vehículo
         async function registerVehicleMovement(movementData) {
             try {
-                await db.collection('vehicleMovements').add(movementData);
+                console.log("📝 Registrando movimiento de vehículo:", movementData);
+                
+                const docRef = await db.collection('vehicleMovements').add(movementData);
+                console.log(`✅ Movimiento registrado con ID: ${docRef.id}`);
+                
                 await loadVehicleMovements();
-                alert('Entrada registrada correctamente');
+                alert('✅ Entrada registrada correctamente');
                 document.getElementById('vehicleForm').reset();
+                
             } catch (error) {
-                console.error("Error registrando movimiento:", error);
-                alert('Error al registrar la entrada');
+                console.error("❌ Error registrando movimiento:", error);
+                alert('❌ Error al registrar la entrada. Revisa la consola para más detalles.');
             }
         }
 
         // Actualizar movimiento de vehículo (salida)
         async function updateVehicleMovement(movementId, exitData) {
             try {
+                console.log("🚗 Registrando salida para movimiento:", movementId);
+                
                 await db.collection('vehicleMovements').doc(movementId).update(exitData);
+                console.log(`✅ Salida registrada correctamente para movimiento: ${movementId}`);
+                
                 await loadVehicleMovements();
+                
             } catch (error) {
-                console.error("Error actualizando movimiento:", error);
-                alert('Error al registrar la salida');
+                console.error("❌ Error actualizando movimiento:", error);
+                alert('❌ Error al registrar la salida. Revisa la consola para más detalles.');
             }
         }
+
+        // ===========================================
+        // FUNCIONES MEJORADAS PARA AUTOCOMPLETADO
+        // ===========================================
 
         // Rellenar automáticamente la empresa al introducir la matrícula
         function autoFillCompany() {
-            const plate = document.getElementById('vehiclePlate').value.toUpperCase();
-            const vehicle = vehicles.find(v => v.plate === plate);
+            const plateInput = document.getElementById('vehiclePlate');
+            const companyInput = document.getElementById('vehicleCompany');
+            
+            if (!plateInput || !companyInput) {
+                console.error("❌ No se encontraron los campos de matrícula o empresa");
+                return;
+            }
+            
+            const plate = plateInput.value.toUpperCase().trim();
+            
+            if (plate.length === 0) {
+                companyInput.value = '';
+                return;
+            }
+            
+            console.log("🔍 Buscando matrícula:", plate);
+            console.log("📋 Base de datos de vehículos:", vehicles);
+            
+            // Buscar el vehículo (case insensitive)
+            const vehicle = vehicles.find(v => 
+                v.plate.toUpperCase().trim() === plate
+            );
+            
             if (vehicle) {
-                document.getElementById('vehicleCompany').value = vehicle.company;
+                companyInput.value = vehicle.company;
+                console.log("✅ Empresa autocompletada:", vehicle.company);
+                
+                // Efecto visual para indicar que se autocompletó
+                companyInput.classList.add('autocomplete-highlight');
+                setTimeout(() => {
+                    companyInput.classList.remove('autocomplete-highlight');
+                }, 1000);
             } else {
-                document.getElementById('vehicleCompany').value = '';
+                companyInput.value = '';
+                console.log("❌ No se encontró vehículo con la matrícula:", plate);
             }
         }
 
-        // Poblar el select de matrículas en el formulario
+        // Poblar el datalist para autocompletar matrículas
         function populateVehiclePlateSelect() {
             const plateInput = document.getElementById('vehiclePlate');
+            
+            if (!plateInput) {
+                console.error("❌ No se encontró el campo de matrícula");
+                return;
+            }
+            
             // Limpiar datalist si existe
             const existingDatalist = document.getElementById('vehiclePlatesList');
             if (existingDatalist) {
@@ -701,15 +815,67 @@
             const datalist = document.createElement('datalist');
             datalist.id = 'vehiclePlatesList';
             
+            console.log("🔄 Creando datalist con", vehicles.length, "vehículos");
+            
             vehicles.forEach(vehicle => {
                 const option = document.createElement('option');
                 option.value = vehicle.plate;
+                option.textContent = `${vehicle.plate} - ${vehicle.company}`;
                 datalist.appendChild(option);
+                console.log("➕ Opción añadida:", vehicle.plate);
             });
             
             document.body.appendChild(datalist);
             plateInput.setAttribute('list', 'vehiclePlatesList');
+            console.log("✅ Datalist configurado correctamente");
         }
+
+        // ===========================================
+        // FUNCIONES DE DEPURACIÓN Y PRUEBAS
+        // ===========================================
+
+        // Función temporal para probar el autocompletado
+        function testAutoComplete() {
+            console.log("=== 🧪 TEST AUTocompletado ===");
+            console.log("Vehículos en memoria:", vehicles);
+            console.log("Campo matrícula:", document.getElementById('vehiclePlate'));
+            console.log("Campo empresa:", document.getElementById('vehicleCompany'));
+            
+            // Probar con el primer vehículo si existe
+            if (vehicles.length > 0) {
+                const testPlate = vehicles[0].plate;
+                console.log("🔍 Probando con matrícula:", testPlate);
+                document.getElementById('vehiclePlate').value = testPlate;
+                autoFillCompany();
+                console.log("✅ Test completado");
+            } else {
+                console.log("❌ No hay vehículos para probar");
+                alert("No hay vehículos registrados para probar el autocompletado");
+            }
+        }
+
+        // Función para ver el estado actual
+        function showCurrentState() {
+            console.log("=== 📊 ESTADO ACTUAL DEL SISTEMA ===");
+            console.log("Vehículos en memoria:", vehicles.length);
+            console.log("Movimientos en memoria:", vehicleMovements.length);
+            console.log("Vehículos registrados:");
+            vehicles.forEach(v => console.log(`  - ${v.plate} (${v.company})`));
+            console.log("=================================");
+            
+            // Mostrar también en un alert para fácil visualización
+            let message = `ESTADO DEL SISTEMA:\n\n`;
+            message += `Vehículos registrados: ${vehicles.length}\n`;
+            message += `Movimientos hoy: ${vehicleMovements.length}\n\n`;
+            message += `Vehículos:\n`;
+            vehicles.forEach(v => message += `- ${v.plate} (${v.company})\n`);
+            
+            alert(message);
+        }
+
+        // ===========================================
+        // FUNCIONES ORIGINALES DEL SISTEMA
+        // ===========================================
 
         // Cargar tabla de movimientos de vehículos
         function loadVehicleMovementsTable(filter = 'all') {
@@ -915,55 +1081,6 @@
         }
 
         // ===========================================
-        // INICIALIZACIÓN DE LA APLICACIÓN
-        // ===========================================
-
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeApp();
-        });
-
-        async function initializeApp() {
-            // Cargar opciones de llaves en el select
-            const keySelect = document.getElementById('keySelect');
-            keys.forEach(key => {
-                const option = document.createElement('option');
-                option.value = key.id;
-                option.textContent = `${key.id} - ${key.name}`;
-                keySelect.appendChild(option);
-            });
-
-            // Actualizar estadísticas de llaves
-            updateStats();
-
-            // Cargar historial de movimientos de llaves
-            loadMovements();
-
-            // Cargar datos de vehículos desde Firebase
-            await loadVehicles();
-            await loadVehicleMovements();
-
-            // Configurar eventos para llaves
-            document.getElementById('keyForm').addEventListener('submit', handleFormSubmit);
-            document.getElementById('filterToday').addEventListener('click', () => filterMovements('today'));
-            document.getElementById('filterAll').addEventListener('click', () => filterMovements('all'));
-            document.getElementById('generateTodayReport').addEventListener('click', generateTodayPDF);
-            document.getElementById('generateDateReport').addEventListener('click', generateDatePDF);
-            
-            // Configurar eventos para vehículos
-            document.getElementById('vehicleForm').addEventListener('submit', handleVehicleFormSubmit);
-            document.getElementById('vehiclePlate').addEventListener('input', autoFillCompany);
-            document.getElementById('filterVehicleToday').addEventListener('click', () => filterVehicleMovements('today'));
-            document.getElementById('filterVehicleAll').addEventListener('click', () => filterVehicleMovements('all'));
-            document.getElementById('generateVehicleTodayReport').addEventListener('click', generateVehicleTodayPDF);
-            document.getElementById('generateVehicleDateReport').addEventListener('click', generateVehicleDatePDF);
-            document.getElementById('saveNewVehicleBtn').addEventListener('click', handleNewVehicleSubmit);
-            
-            // Establecer fecha actual por defecto en los selectores de fecha
-            document.getElementById('reportDate').valueAsDate = new Date();
-            document.getElementById('vehicleReportDate').valueAsDate = new Date();
-        }
-
-        // ===========================================
         // MANEJADORES DE FORMULARIOS
         // ===========================================
 
@@ -1018,6 +1135,80 @@
             };
             
             saveNewVehicle(vehicleData);
+        }
+
+        // ===========================================
+        // INICIALIZACIÓN DE LA APLICACIÓN
+        // ===========================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        async function initializeApp() {
+            console.log("🚀 Inicializando aplicación...");
+            
+            // Cargar opciones de llaves en el select
+            const keySelect = document.getElementById('keySelect');
+            keys.forEach(key => {
+                const option = document.createElement('option');
+                option.value = key.id;
+                option.textContent = `${key.id} - ${key.name}`;
+                keySelect.appendChild(option);
+            });
+
+            // Actualizar estadísticas de llaves
+            updateStats();
+
+            // Cargar historial de movimientos de llaves
+            loadMovements();
+
+            // Probar conexión con Firebase
+            await testFirebaseConnection();
+
+            // Cargar datos de vehículos desde Firebase
+            await loadVehicles();
+            await loadVehicleMovements();
+
+            // Configurar eventos para llaves
+            document.getElementById('keyForm').addEventListener('submit', handleFormSubmit);
+            document.getElementById('filterToday').addEventListener('click', () => filterMovements('today'));
+            document.getElementById('filterAll').addEventListener('click', () => filterMovements('all'));
+            document.getElementById('generateTodayReport').addEventListener('click', generateTodayPDF);
+            document.getElementById('generateDateReport').addEventListener('click', generateDatePDF);
+            
+            // Configurar eventos para vehículos - FORMA MEJORADA
+            const vehicleForm = document.getElementById('vehicleForm');
+            const vehiclePlate = document.getElementById('vehiclePlate');
+            
+            if (vehicleForm) {
+                vehicleForm.addEventListener('submit', handleVehicleFormSubmit);
+                console.log("✅ Event listener configurado para formulario de vehículos");
+            } else {
+                console.error("❌ No se encontró el formulario de vehículos");
+            }
+            
+            if (vehiclePlate) {
+                // Múltiples eventos para mejor detección
+                vehiclePlate.addEventListener('input', autoFillCompany);
+                vehiclePlate.addEventListener('change', autoFillCompany);
+                vehiclePlate.addEventListener('blur', autoFillCompany);
+                console.log("✅ Event listeners configurados para campo de matrícula");
+            } else {
+                console.error("❌ No se encontró el campo de matrícula");
+            }
+            
+            document.getElementById('filterVehicleToday').addEventListener('click', () => filterVehicleMovements('today'));
+            document.getElementById('filterVehicleAll').addEventListener('click', () => filterVehicleMovements('all'));
+            document.getElementById('generateVehicleTodayReport').addEventListener('click', generateVehicleTodayPDF);
+            document.getElementById('generateVehicleDateReport').addEventListener('click', generateVehicleDatePDF);
+            document.getElementById('saveNewVehicleBtn').addEventListener('click', handleNewVehicleSubmit);
+            
+            // Establecer fecha actual por defecto en los selectores de fecha
+            document.getElementById('reportDate').valueAsDate = new Date();
+            document.getElementById('vehicleReportDate').valueAsDate = new Date();
+            
+            console.log("✅ Aplicación inicializada correctamente");
         }
 
         // ===========================================
