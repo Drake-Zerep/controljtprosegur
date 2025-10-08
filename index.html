@@ -1336,10 +1336,10 @@
         }
 
         // ===========================================
-        // FUNCIONES DE INTERFAZ PARA LLAVES
+        // FUNCIONES DE INTERFAZ PARA LLAVES - MODIFICADAS
         // ===========================================
 
-        // Cargar tabla de movimientos de llaves
+        // Cargar tabla de movimientos de llaves (MODIFICADA)
         function loadMovements(filter = 'all') {
             const tbody = document.querySelector('#movementsTable tbody');
             tbody.innerHTML = '';
@@ -1365,12 +1365,28 @@
                 const date = new Date(movement.timestamp);
                 const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
                 
-                // Crear botón de entregada con evento directamente
-                const entregadaButton = movement.status === 'prestada' ? 
-                    `<button class="btn btn-sm btn-success entregada-btn" data-movement-id="${movement.id}">
-                        <i class="bi bi-check-lg me-1"></i>Entregada
-                    </button>` : 
-                    `<span class="text-muted">Devuelta ${movement.returnTimestamp ? new Date(movement.returnTimestamp).toLocaleDateString() : ''}</span>`;
+                let accionesHTML = '';
+                
+                if (movement.status === 'prestada') {
+                    // Llave aún prestada - mostrar botón para devolver
+                    accionesHTML = `
+                        <button class="btn btn-sm btn-success entregada-btn" data-movement-id="${movement.id}">
+                            <i class="bi bi-check-lg me-1"></i>Entregada
+                        </button>
+                    `;
+                } else {
+                    // Llave ya devuelta - mostrar hora de devolución
+                    const returnTime = movement.returnTimestamp ? 
+                        new Date(movement.returnTimestamp).toLocaleTimeString() : 
+                        'Hora no registrada';
+                        
+                    accionesHTML = `
+                        <span class="text-success" title="Devuelta a las ${returnTime}">
+                            <i class="bi bi-check-circle-fill me-1"></i>
+                            ${returnTime}
+                        </span>
+                    `;
+                }
                 
                 row.innerHTML = `
                     <td>${formattedDate}</td>
@@ -1381,7 +1397,7 @@
                             ${movement.status === 'prestada' ? 'Prestada' : 'Devuelta'}
                         </span>
                     </td>
-                    <td>${entregadaButton}</td>
+                    <td>${accionesHTML}</td>
                 `;
                 
                 tbody.appendChild(row);
@@ -1546,10 +1562,10 @@
         }
 
         // ===========================================
-        // FUNCIONES DE REPORTES PDF
+        // FUNCIONES DE REPORTES PDF - MODIFICADAS
         // ===========================================
 
-        // Generar PDF de movimientos de llaves del día
+        // Generar PDF de movimientos de llaves del día (MODIFICADA)
         function generateTodayPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -1573,17 +1589,21 @@
                 // Crear tabla
                 const tableData = todayMovements.map(m => {
                     const date = new Date(m.timestamp);
+                    const returnTime = m.returnTimestamp ? 
+                        new Date(m.returnTimestamp).toLocaleTimeString() : '-';
+                        
                     return [
                         `${date.toLocaleTimeString()}`,
                         `${m.keyNumber} - ${m.keyName}`,
                         m.personName,
-                        m.status === 'prestada' ? 'Prestada' : 'Devuelta'
+                        m.status === 'prestada' ? 'Prestada' : 'Devuelta',
+                        returnTime
                     ];
                 });
                 
                 doc.autoTable({
                     startY: 50,
-                    head: [['Hora', 'Llave', 'Retirada por', 'Estado']],
+                    head: [['Hora', 'Llave', 'Retirada por', 'Estado', 'Hora Devolución']],
                     body: tableData,
                     theme: 'grid',
                     headStyles: { fillColor: [243, 156, 18] }
@@ -1595,7 +1615,7 @@
             doc.save(fileName);
         }
 
-        // Generar PDF de movimientos de llaves por fecha
+        // Generar PDF de movimientos de llaves por fecha (MODIFICADA)
         function generateDatePDF() {
             const reportDate = document.getElementById('reportDate').value;
             
@@ -1626,17 +1646,21 @@
                 // Crear tabla
                 const tableData = filteredMovements.map(m => {
                     const date = new Date(m.timestamp);
+                    const returnTime = m.returnTimestamp ? 
+                        new Date(m.returnTimestamp).toLocaleTimeString() : '-';
+                        
                     return [
                         `${date.toLocaleTimeString()}`,
                         `${m.keyNumber} - ${m.keyName}`,
                         m.personName,
-                        m.status === 'prestada' ? 'Prestada' : 'Devuelta'
+                        m.status === 'prestada' ? 'Prestada' : 'Devuelta',
+                        returnTime
                     ];
                 });
                 
                 doc.autoTable({
                     startY: 50,
-                    head: [['Hora', 'Llave', 'Retirada por', 'Estado']],
+                    head: [['Hora', 'Llave', 'Retirada por', 'Estado', 'Hora Devolución']],
                     body: tableData,
                     theme: 'grid',
                     headStyles: { fillColor: [243, 156, 18] }
