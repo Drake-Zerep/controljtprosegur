@@ -20,6 +20,7 @@
             --vehicle-color: #9b59b6;
             --report-color: #e67e22;
             --filter-color: #16a085;
+            --key-color: #f39c12;
         }
         
         body {
@@ -72,6 +73,11 @@
         
         .btn-filter {
             background-color: var(--filter-color);
+            border: none;
+        }
+        
+        .btn-key {
+            background-color: var(--key-color);
             border: none;
         }
         
@@ -174,6 +180,11 @@
             background-color: #e8f5e8 !important;
             transition: background-color 0.5s ease;
         }
+        
+        .key-autocomplete-highlight {
+            background-color: #fff3cd !important;
+            transition: background-color 0.5s ease;
+        }
     </style>
 </head>
 <body>
@@ -270,11 +281,15 @@
                             <div class="card-body">
                                 <form id="keyForm">
                                     <div class="mb-3">
-                                        <label for="keySelect" class="form-label">Seleccionar Llave</label>
-                                        <select class="form-select" id="keySelect" required>
-                                            <option value="" selected disabled>Seleccione una llave</option>
-                                            <!-- Las opciones se cargarán con JavaScript -->
-                                        </select>
+                                        <label for="keyNumber" class="form-label">Número de Llave</label>
+                                        <input type="text" class="form-control" id="keyNumber" required 
+                                               placeholder="Ej: 1, 2, 3...">
+                                        <div class="form-text">El nombre se autocompletará al escribir el número</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="keyName" class="form-label">Nombre de la Llave</label>
+                                        <input type="text" class="form-control" id="keyName" required
+                                               placeholder="Se autocompletará con el número">
                                     </div>
                                     <div class="mb-3">
                                         <label for="personName" class="form-label">Retirada por</label>
@@ -284,19 +299,29 @@
                                         <label for="notes" class="form-label">Observaciones (opcional)</label>
                                         <textarea class="form-control" id="notes" rows="2"></textarea>
                                     </div>
-                                    <button type="submit" class="btn btn-primary w-100">
+                                    <button type="submit" class="btn btn-key w-100">
                                         <i class="bi bi-check-circle me-2"></i>Registrar Retirada
                                     </button>
                                 </form>
                             </div>
                         </div>
                         
-                        <!-- Estado de llaves -->
+                        <!-- Gestión de llaves -->
                         <div class="card mt-4">
                             <div class="card-header">
-                                <i class="bi bi-info-circle me-2"></i>Estado de Llaves
+                                <i class="bi bi-key me-2"></i>Gestión de Llaves
                             </div>
                             <div class="card-body">
+                                <button class="btn btn-outline-primary w-100 mb-3" id="addKeyBtn" data-bs-toggle="modal" data-bs-target="#addKeyModal">
+                                    <i class="bi bi-plus-circle me-2"></i>Añadir Llave Nueva
+                                </button>
+                                <!-- Botones de prueba -->
+                                <button class="btn btn-warning btn-sm w-100 mb-2" onclick="testKeyAutoComplete()">
+                                    <i class="bi bi-bug me-1"></i>Probar Autocompletado
+                                </button>
+                                <button class="btn btn-info btn-sm w-100 mb-3" onclick="showKeysCurrentState()">
+                                    <i class="bi bi-info-circle me-1"></i>Ver Estado Llaves
+                                </button>
                                 <div class="d-flex justify-content-between mb-2">
                                     <span>Disponibles:</span>
                                     <span class="badge bg-success" id="availableBadge">0</span>
@@ -544,6 +569,34 @@
         </div>
     </div>
 
+    <!-- Modal para añadir llave nueva -->
+    <div class="modal fade" id="addKeyModal" tabindex="-1" aria-labelledby="addKeyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addKeyModalLabel">Añadir Llave Nueva</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="newKeyForm">
+                        <div class="mb-3">
+                            <label for="newKeyNumber" class="form-label">Número de Llave</label>
+                            <input type="number" class="form-control" id="newKeyNumber" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newKeyName" class="form-label">Nombre de la Llave</label>
+                            <input type="text" class="form-control" id="newKeyName" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-key" id="saveNewKeyBtn">Guardar Llave</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal para añadir vehículo nuevo -->
     <div class="modal fade" id="addVehicleModal" tabindex="-1" aria-labelledby="addVehicleModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -582,9 +635,10 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // ===========================================
-        // CONFIGURACIÓN DE FIREBASE CON VERIFICACIÓN
+        // CONFIGURACIÓN DE FIREBASE
         // ===========================================
         
+        // REEMPLAZA ESTOS VALORES CON TUS DATOS DE FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyCNHnsj6bVwpX-87xr4JkUtYo5Omng6PHo",
             authDomain: "registrojt-5538c.firebaseapp.com",
@@ -617,40 +671,225 @@
         // DATOS INICIALES
         // ===========================================
         
-        // Datos de las llaves
-        const keys = [
-            { id: 1, name: "Economato", status: "available" },
-            { id: 2, name: "Restaurante babbo american grill", status: "available" },
-            // ... (el resto de las llaves del código original)
-        ];
-
-        // Historial de movimientos de llaves
-        let movements = JSON.parse(localStorage.getItem('keyMovements')) || [];
+        // Datos de llaves (se cargarán desde Firebase)
+        let keys = [];
+        let keyMovements = [];
 
         // Datos de vehículos (se cargarán desde Firebase)
         let vehicles = [];
         let vehicleMovements = [];
 
         // ===========================================
-        // FUNCIONES MEJORADAS PARA VEHÍCULOS
+        // FUNCIONES PARA LLAVES CON FIREBASE
         // ===========================================
 
-        // Función de prueba de conexión
-        async function testFirebaseConnection() {
+        // Cargar llaves desde Firebase
+        async function loadKeys() {
             try {
-                console.log("🔌 Probando conexión con Firebase...");
+                console.log("🔄 Cargando llaves desde Firebase...");
+                const snapshot = await db.collection('keys').orderBy('number').get();
+                keys = [];
                 
-                // Intentar leer una colección
-                const testSnapshot = await db.collection('vehicles').limit(1).get();
-                console.log("✅ Conexión a Firebase exitosa");
-                console.log("Documentos en vehicles:", testSnapshot.size);
+                snapshot.forEach(doc => {
+                    const keyData = doc.data();
+                    console.log(`🔑 Llave cargada: ${keyData.number} - ${keyData.name} (ID: ${doc.id})`);
+                    keys.push({ 
+                        id: doc.id, 
+                        number: keyData.number,
+                        name: keyData.name,
+                        status: 'available' // Estado por defecto
+                    });
+                });
                 
-                return true;
+                console.log(`✅ ${keys.length} llaves cargadas correctamente`);
+                updateKeyStats();
+                populateKeyNumberSelect();
+                
             } catch (error) {
-                console.error("❌ Error de conexión a Firebase:", error);
-                return false;
+                console.error("❌ Error cargando llaves:", error);
             }
         }
+
+        // Cargar movimientos de llaves desde Firebase
+        async function loadKeyMovements() {
+            try {
+                console.log("🔄 Cargando movimientos de llaves desde Firebase...");
+                const snapshot = await db.collection('keyMovements').orderBy('timestamp', 'desc').get();
+                keyMovements = [];
+                
+                snapshot.forEach(doc => {
+                    const movementData = doc.data();
+                    console.log(`📝 Movimiento de llave cargado: ${movementData.keyNumber} - ${movementData.status}`);
+                    keyMovements.push({ id: doc.id, ...movementData });
+                });
+                
+                console.log(`✅ ${keyMovements.length} movimientos de llaves cargados correctamente`);
+                updateKeyStatuses();
+                loadMovements();
+                updateStats();
+                
+            } catch (error) {
+                console.error("❌ Error cargando movimientos de llaves:", error);
+            }
+        }
+
+        // Guardar una nueva llave en Firebase
+        async function saveNewKey(keyData) {
+            try {
+                console.log("💾 Guardando llave en Firebase:", keyData);
+                
+                // Verificar si ya existe una llave con ese número
+                const existingKey = keys.find(k => k.number === keyData.number);
+                if (existingKey) {
+                    alert('Error: Ya existe una llave con ese número');
+                    return;
+                }
+                
+                const docRef = await db.collection('keys').add(keyData);
+                console.log(`✅ Llave guardada con ID: ${docRef.id}`);
+                
+                await loadKeys();
+                alert('✅ Llave guardada correctamente en la base de datos');
+                document.getElementById('newKeyForm').reset();
+                bootstrap.Modal.getInstance(document.getElementById('addKeyModal')).hide();
+                
+            } catch (error) {
+                console.error("❌ Error guardando llave:", error);
+                alert('❌ Error al guardar la llave. Revisa la consola para más detalles.');
+            }
+        }
+
+        // Registrar movimiento de llave
+        async function registerKeyMovement(movementData) {
+            try {
+                console.log("📝 Registrando movimiento de llave:", movementData);
+                
+                const docRef = await db.collection('keyMovements').add(movementData);
+                console.log(`✅ Movimiento de llave registrado con ID: ${docRef.id}`);
+                
+                await loadKeyMovements();
+                alert('✅ Retirada registrada correctamente');
+                document.getElementById('keyForm').reset();
+                
+            } catch (error) {
+                console.error("❌ Error registrando movimiento de llave:", error);
+                alert('❌ Error al registrar la retirada. Revisa la consola para más detalles.');
+            }
+        }
+
+        // Actualizar movimiento de llave (devolución)
+        async function updateKeyMovement(movementId, returnData) {
+            try {
+                console.log("🔑 Registrando devolución para movimiento:", movementId);
+                
+                await db.collection('keyMovements').doc(movementId).update(returnData);
+                console.log(`✅ Devolución registrada correctamente para movimiento: ${movementId}`);
+                
+                await loadKeyMovements();
+                
+            } catch (error) {
+                console.error("❌ Error actualizando movimiento de llave:", error);
+                alert('❌ Error al registrar la devolución. Revisa la consola para más detalles.');
+            }
+        }
+
+        // Actualizar estados de las llaves basado en los movimientos
+        function updateKeyStatuses() {
+            // Resetear todos los estados a disponible
+            keys.forEach(key => {
+                key.status = 'available';
+            });
+            
+            // Marcar como prestadas las llaves con movimientos activos
+            keyMovements.forEach(movement => {
+                if (movement.status === 'prestada') {
+                    const key = keys.find(k => k.number === movement.keyNumber);
+                    if (key) {
+                        key.status = 'borrowed';
+                    }
+                }
+            });
+        }
+
+        // ===========================================
+        // FUNCIONES DE AUTOCOMPLETADO PARA LLAVES
+        // ===========================================
+
+        // Rellenar automáticamente el nombre al introducir el número
+        function autoFillKeyName() {
+            const numberInput = document.getElementById('keyNumber');
+            const nameInput = document.getElementById('keyName');
+            
+            if (!numberInput || !nameInput) {
+                console.error("❌ No se encontraron los campos de número o nombre de llave");
+                return;
+            }
+            
+            const number = parseInt(numberInput.value);
+            
+            if (isNaN(number)) {
+                nameInput.value = '';
+                return;
+            }
+            
+            console.log("🔍 Buscando llave número:", number);
+            console.log("📋 Base de datos de llaves:", keys);
+            
+            // Buscar la llave
+            const key = keys.find(k => k.number === number);
+            
+            if (key) {
+                nameInput.value = key.name;
+                console.log("✅ Nombre autocompletado:", key.name);
+                
+                // Efecto visual para indicar que se autocompletó
+                nameInput.classList.add('key-autocomplete-highlight');
+                setTimeout(() => {
+                    nameInput.classList.remove('key-autocomplete-highlight');
+                }, 1000);
+            } else {
+                nameInput.value = '';
+                console.log("❌ No se encontró llave con el número:", number);
+            }
+        }
+
+        // Poblar el datalist para autocompletar números de llave
+        function populateKeyNumberSelect() {
+            const numberInput = document.getElementById('keyNumber');
+            
+            if (!numberInput) {
+                console.error("❌ No se encontró el campo de número de llave");
+                return;
+            }
+            
+            // Limpiar datalist si existe
+            const existingDatalist = document.getElementById('keyNumbersList');
+            if (existingDatalist) {
+                existingDatalist.remove();
+            }
+            
+            // Crear datalist para autocompletar
+            const datalist = document.createElement('datalist');
+            datalist.id = 'keyNumbersList';
+            
+            console.log("🔄 Creando datalist con", keys.length, "llaves");
+            
+            keys.forEach(key => {
+                const option = document.createElement('option');
+                option.value = key.number;
+                option.textContent = `${key.number} - ${key.name}`;
+                datalist.appendChild(option);
+                console.log("➕ Opción añadida:", key.number);
+            });
+            
+            document.body.appendChild(datalist);
+            numberInput.setAttribute('list', 'keyNumbersList');
+            console.log("✅ Datalist de llaves configurado correctamente");
+        }
+
+        // ===========================================
+        // FUNCIONES PARA VEHÍCULOS CON FIREBASE
+        // ===========================================
 
         // Cargar vehículos desde Firebase
         async function loadVehicles() {
@@ -671,7 +910,6 @@
                 
             } catch (error) {
                 console.error("❌ Error cargando vehículos:", error);
-                alert("Error al cargar los vehículos. Revisa la consola para más detalles.");
             }
         }
 
@@ -705,9 +943,7 @@
                 const docRef = await db.collection('vehicles').add(vehicleData);
                 console.log(`✅ Vehículo guardado con ID: ${docRef.id}`);
                 
-                // Recargar la lista para verificar
                 await loadVehicles();
-                
                 alert('✅ Vehículo guardado correctamente en la base de datos');
                 document.getElementById('newVehicleForm').reset();
                 bootstrap.Modal.getInstance(document.getElementById('addVehicleModal')).hide();
@@ -753,7 +989,7 @@
         }
 
         // ===========================================
-        // FUNCIONES MEJORADAS PARA AUTOCOMPLETADO
+        // FUNCIONES DE AUTOCOMPLETADO PARA VEHÍCULOS
         // ===========================================
 
         // Rellenar automáticamente la empresa al introducir la matrícula
@@ -834,9 +1070,29 @@
         // FUNCIONES DE DEPURACIÓN Y PRUEBAS
         // ===========================================
 
-        // Función temporal para probar el autocompletado
+        // Función temporal para probar el autocompletado de llaves
+        function testKeyAutoComplete() {
+            console.log("=== 🧪 TEST AUTocompletado LLAVES ===");
+            console.log("Llaves en memoria:", keys);
+            console.log("Campo número:", document.getElementById('keyNumber'));
+            console.log("Campo nombre:", document.getElementById('keyName'));
+            
+            // Probar con la primera llave si existe
+            if (keys.length > 0) {
+                const testNumber = keys[0].number;
+                console.log("🔍 Probando con número:", testNumber);
+                document.getElementById('keyNumber').value = testNumber;
+                autoFillKeyName();
+                console.log("✅ Test completado");
+            } else {
+                console.log("❌ No hay llaves para probar");
+                alert("No hay llaves registradas para probar el autocompletado");
+            }
+        }
+
+        // Función temporal para probar el autocompletado de vehículos
         function testAutoComplete() {
-            console.log("=== 🧪 TEST AUTocompletado ===");
+            console.log("=== 🧪 TEST AUTocompletado VEHÍCULOS ===");
             console.log("Vehículos en memoria:", vehicles);
             console.log("Campo matrícula:", document.getElementById('vehiclePlate'));
             console.log("Campo empresa:", document.getElementById('vehicleCompany'));
@@ -854,17 +1110,34 @@
             }
         }
 
-        // Función para ver el estado actual
+        // Función para ver el estado actual de llaves
+        function showKeysCurrentState() {
+            console.log("=== 🔑 ESTADO ACTUAL DE LLAVES ===");
+            console.log("Llaves en memoria:", keys.length);
+            console.log("Movimientos en memoria:", keyMovements.length);
+            console.log("Llaves registradas:");
+            keys.forEach(k => console.log(`  - ${k.number}: ${k.name} (${k.status})`));
+            console.log("=================================");
+            
+            let message = `ESTADO DE LLAVES:\n\n`;
+            message += `Llaves registradas: ${keys.length}\n`;
+            message += `Movimientos hoy: ${keyMovements.length}\n\n`;
+            message += `Llaves:\n`;
+            keys.forEach(k => message += `- ${k.number}: ${k.name} (${k.status})\n`);
+            
+            alert(message);
+        }
+
+        // Función para ver el estado actual de vehículos
         function showCurrentState() {
-            console.log("=== 📊 ESTADO ACTUAL DEL SISTEMA ===");
+            console.log("=== 🚗 ESTADO ACTUAL DE VEHÍCULOS ===");
             console.log("Vehículos en memoria:", vehicles.length);
             console.log("Movimientos en memoria:", vehicleMovements.length);
             console.log("Vehículos registrados:");
             vehicles.forEach(v => console.log(`  - ${v.plate} (${v.company})`));
             console.log("=================================");
             
-            // Mostrar también en un alert para fácil visualización
-            let message = `ESTADO DEL SISTEMA:\n\n`;
+            let message = `ESTADO DE VEHÍCULOS:\n\n`;
             message += `Vehículos registrados: ${vehicles.length}\n`;
             message += `Movimientos hoy: ${vehicleMovements.length}\n\n`;
             message += `Vehículos:\n`;
@@ -874,7 +1147,302 @@
         }
 
         // ===========================================
-        // FUNCIONES ORIGINALES DEL SISTEMA
+        // MANEJADORES DE FORMULARIOS
+        // ===========================================
+
+        // Manejar envío del formulario de llaves
+        async function handleKeyFormSubmit(e) {
+            e.preventDefault();
+            
+            const keyNumber = parseInt(document.getElementById('keyNumber').value);
+            const keyName = document.getElementById('keyName').value;
+            const personName = document.getElementById('personName').value;
+            const notes = document.getElementById('notes').value;
+            
+            // Validar que la llave existe
+            const key = keys.find(k => k.number === keyNumber);
+            if (!key) {
+                alert('Error: Llave no encontrada');
+                return;
+            }
+            
+            // Validar que la llave está disponible
+            if (key.status !== 'available') {
+                alert('Error: Esta llave ya está prestada');
+                return;
+            }
+            
+            // Registrar movimiento
+            const movement = {
+                keyNumber: keyNumber,
+                keyName: keyName,
+                personName: personName,
+                notes: notes,
+                status: 'prestada',
+                timestamp: new Date().toISOString(),
+                returnTimestamp: null
+            };
+            
+            await registerKeyMovement(movement);
+        }
+
+        // Manejar envío del formulario de nuevo llave
+        function handleNewKeySubmit() {
+            const number = parseInt(document.getElementById('newKeyNumber').value);
+            const name = document.getElementById('newKeyName').value;
+            
+            if (!number || !name) {
+                alert('Por favor, complete todos los campos obligatorios');
+                return;
+            }
+            
+            const keyData = {
+                number: number,
+                name: name
+            };
+            
+            saveNewKey(keyData);
+        }
+
+        // Manejar envío del formulario de vehículos
+        async function handleVehicleFormSubmit(e) {
+            e.preventDefault();
+            
+            const plate = document.getElementById('vehiclePlate').value.toUpperCase();
+            const company = document.getElementById('vehicleCompany').value;
+            const notes = document.getElementById('vehicleNotes').value;
+            
+            // Verificar si el vehículo ya está en el parqueadero
+            const alreadyParked = vehicleMovements.some(m => m.plate === plate && m.status === 'parked');
+            if (alreadyParked) {
+                alert('Error: Este vehículo ya está registrado en el parqueadero');
+                return;
+            }
+            
+            // Registrar movimiento
+            const movement = {
+                plate: plate,
+                company: company,
+                notes: notes,
+                status: 'parked',
+                timestamp: new Date().toISOString(),
+                exitTimestamp: null
+            };
+            
+            await registerVehicleMovement(movement);
+        }
+
+        // Manejar envío del formulario de nuevo vehículo
+        function handleNewVehicleSubmit() {
+            const plate = document.getElementById('newVehiclePlate').value.toUpperCase();
+            const company = document.getElementById('newVehicleCompany').value;
+            
+            if (!plate || !company) {
+                alert('Por favor, complete todos los campos obligatorios');
+                return;
+            }
+            
+            // Verificar si la matrícula ya existe
+            const existingVehicle = vehicles.find(v => v.plate === plate);
+            if (existingVehicle) {
+                alert('Error: Ya existe un vehículo con esta matrícula');
+                return;
+            }
+            
+            const vehicleData = {
+                plate: plate,
+                company: company
+            };
+            
+            saveNewVehicle(vehicleData);
+        }
+
+        // ===========================================
+        // INICIALIZACIÓN DE LA APLICACIÓN
+        // ===========================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        async function initializeApp() {
+            console.log("🚀 Inicializando aplicación...");
+            
+            // Cargar datos desde Firebase
+            await loadKeys();
+            await loadKeyMovements();
+            await loadVehicles();
+            await loadVehicleMovements();
+
+            // Configurar eventos para llaves
+            const keyForm = document.getElementById('keyForm');
+            const keyNumber = document.getElementById('keyNumber');
+            
+            if (keyForm) {
+                keyForm.addEventListener('submit', handleKeyFormSubmit);
+                console.log("✅ Event listener configurado para formulario de llaves");
+            } else {
+                console.error("❌ No se encontró el formulario de llaves");
+            }
+            
+            if (keyNumber) {
+                // Múltiples eventos para mejor detección
+                keyNumber.addEventListener('input', autoFillKeyName);
+                keyNumber.addEventListener('change', autoFillKeyName);
+                keyNumber.addEventListener('blur', autoFillKeyName);
+                console.log("✅ Event listeners configurados para campo de número de llave");
+            } else {
+                console.error("❌ No se encontró el campo de número de llave");
+            }
+            
+            document.getElementById('filterToday').addEventListener('click', () => filterMovements('today'));
+            document.getElementById('filterAll').addEventListener('click', () => filterMovements('all'));
+            document.getElementById('generateTodayReport').addEventListener('click', generateTodayPDF);
+            document.getElementById('generateDateReport').addEventListener('click', generateDatePDF);
+            document.getElementById('saveNewKeyBtn').addEventListener('click', handleNewKeySubmit);
+            
+            // Configurar eventos para vehículos
+            const vehicleForm = document.getElementById('vehicleForm');
+            const vehiclePlate = document.getElementById('vehiclePlate');
+            
+            if (vehicleForm) {
+                vehicleForm.addEventListener('submit', handleVehicleFormSubmit);
+                console.log("✅ Event listener configurado para formulario de vehículos");
+            } else {
+                console.error("❌ No se encontró el formulario de vehículos");
+            }
+            
+            if (vehiclePlate) {
+                // Múltiples eventos para mejor detección
+                vehiclePlate.addEventListener('input', autoFillCompany);
+                vehiclePlate.addEventListener('change', autoFillCompany);
+                vehiclePlate.addEventListener('blur', autoFillCompany);
+                console.log("✅ Event listeners configurados para campo de matrícula");
+            } else {
+                console.error("❌ No se encontró el campo de matrícula");
+            }
+            
+            document.getElementById('filterVehicleToday').addEventListener('click', () => filterVehicleMovements('today'));
+            document.getElementById('filterVehicleAll').addEventListener('click', () => filterVehicleMovements('all'));
+            document.getElementById('generateVehicleTodayReport').addEventListener('click', generateVehicleTodayPDF);
+            document.getElementById('generateVehicleDateReport').addEventListener('click', generateVehicleDatePDF);
+            document.getElementById('saveNewVehicleBtn').addEventListener('click', handleNewVehicleSubmit);
+            
+            // Establecer fecha actual por defecto en los selectores de fecha
+            document.getElementById('reportDate').valueAsDate = new Date();
+            document.getElementById('vehicleReportDate').valueAsDate = new Date();
+            
+            console.log("✅ Aplicación inicializada correctamente");
+        }
+
+        // ===========================================
+        // FUNCIONES DE INTERFAZ PARA LLAVES
+        // ===========================================
+
+        // Cargar tabla de movimientos de llaves
+        function loadMovements(filter = 'all') {
+            const tbody = document.querySelector('#movementsTable tbody');
+            tbody.innerHTML = '';
+            
+            let filteredMovements = keyMovements;
+            
+            if (filter === 'today') {
+                const today = new Date().toDateString();
+                filteredMovements = keyMovements.filter(m => 
+                    new Date(m.timestamp).toDateString() === today
+                );
+            }
+            
+            if (filteredMovements.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="5" class="text-center">No hay movimientos registrados</td>`;
+                tbody.appendChild(row);
+                return;
+            }
+            
+            filteredMovements.forEach(movement => {
+                const row = document.createElement('tr');
+                const date = new Date(movement.timestamp);
+                const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                
+                // Crear botón de entregada con evento directamente
+                const entregadaButton = movement.status === 'prestada' ? 
+                    `<button class="btn btn-sm btn-success entregada-btn" data-movement-id="${movement.id}">
+                        <i class="bi bi-check-lg me-1"></i>Entregada
+                    </button>` : 
+                    `<span class="text-muted">Devuelta ${movement.returnTimestamp ? new Date(movement.returnTimestamp).toLocaleDateString() : ''}</span>`;
+                
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${movement.keyNumber} - ${movement.keyName}</td>
+                    <td>${movement.personName}</td>
+                    <td>
+                        <span class="key-status ${movement.status === 'prestada' ? 'status-borrowed' : 'status-available'}">
+                            ${movement.status === 'prestada' ? 'Prestada' : 'Devuelta'}
+                        </span>
+                    </td>
+                    <td>${entregadaButton}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            // Agregar event listeners a los botones de entregada
+            document.querySelectorAll('.entregada-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const movementId = this.getAttribute('data-movement-id');
+                    markAsReturned(movementId);
+                });
+            });
+        }
+
+        // Marcar llave como devuelta
+        function markAsReturned(movementId) {
+            const returnData = {
+                status: 'devuelta',
+                returnTimestamp: new Date().toISOString()
+            };
+            updateKeyMovement(movementId, returnData);
+        }
+
+        // Filtrar movimientos de llaves
+        function filterMovements(type) {
+            loadMovements(type);
+            
+            // Actualizar botones activos
+            document.getElementById('filterToday').classList.toggle('btn-filter', type === 'today');
+            document.getElementById('filterToday').classList.toggle('btn-outline-primary', type !== 'today');
+            document.getElementById('filterAll').classList.toggle('btn-primary', type === 'all');
+            document.getElementById('filterAll').classList.toggle('btn-outline-secondary', type !== 'all');
+        }
+
+        // Actualizar estadísticas de llaves
+        function updateStats() {
+            const totalKeys = keys.length;
+            const availableKeys = keys.filter(k => k.status === 'available').length;
+            const borrowedKeys = keys.filter(k => k.status === 'borrowed').length;
+            
+            const today = new Date().toDateString();
+            const todayMovements = keyMovements.filter(m => 
+                new Date(m.timestamp).toDateString() === today
+            ).length;
+            
+            document.getElementById('totalKeys').textContent = totalKeys;
+            document.getElementById('availableKeys').textContent = availableKeys;
+            document.getElementById('borrowedKeys').textContent = borrowedKeys;
+            document.getElementById('todayMovements').textContent = todayMovements;
+            
+            document.getElementById('availableBadge').textContent = availableKeys;
+            document.getElementById('borrowedBadge').textContent = borrowedKeys;
+        }
+
+        // Actualizar estadísticas de llaves (alias)
+        function updateKeyStats() {
+            updateStats();
+        }
+
+        // ===========================================
+        // FUNCIONES DE INTERFAZ PARA VEHÍCULOS
         // ===========================================
 
         // Cargar tabla de movimientos de vehículos
@@ -977,6 +1545,109 @@
             document.getElementById('filterVehicleAll').classList.toggle('btn-outline-secondary', type !== 'all');
         }
 
+        // ===========================================
+        // FUNCIONES DE REPORTES PDF
+        // ===========================================
+
+        // Generar PDF de movimientos de llaves del día
+        function generateTodayPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Título del reporte
+            doc.setFontSize(16);
+            doc.text('Sistema de Control de Llaves', 20, 20);
+            doc.setFontSize(12);
+            doc.text(`Reporte del día: ${new Date().toLocaleDateString()}`, 20, 30);
+            doc.text(`Generado: ${new Date().toLocaleString()}`, 20, 40);
+            
+            // Filtrar movimientos de hoy
+            const today = new Date().toDateString();
+            const todayMovements = keyMovements.filter(m => 
+                new Date(m.timestamp).toDateString() === today
+            );
+            
+            if (todayMovements.length === 0) {
+                doc.text('No hay movimientos para hoy', 20, 60);
+            } else {
+                // Crear tabla
+                const tableData = todayMovements.map(m => {
+                    const date = new Date(m.timestamp);
+                    return [
+                        `${date.toLocaleTimeString()}`,
+                        `${m.keyNumber} - ${m.keyName}`,
+                        m.personName,
+                        m.status === 'prestada' ? 'Prestada' : 'Devuelta'
+                    ];
+                });
+                
+                doc.autoTable({
+                    startY: 50,
+                    head: [['Hora', 'Llave', 'Retirada por', 'Estado']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [243, 156, 18] }
+                });
+            }
+            
+            // Guardar PDF
+            const fileName = `movimientos_llaves_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(fileName);
+        }
+
+        // Generar PDF de movimientos de llaves por fecha
+        function generateDatePDF() {
+            const reportDate = document.getElementById('reportDate').value;
+            
+            if (!reportDate) {
+                alert('Por favor, seleccione una fecha');
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Título del reporte
+            doc.setFontSize(16);
+            doc.text('Sistema de Control de Llaves', 20, 20);
+            doc.setFontSize(12);
+            doc.text(`Reporte del día: ${new Date(reportDate).toLocaleDateString()}`, 20, 30);
+            doc.text(`Generado: ${new Date().toLocaleString()}`, 20, 40);
+            
+            // Filtrar movimientos por fecha seleccionada
+            const selectedDate = new Date(reportDate).toDateString();
+            const filteredMovements = keyMovements.filter(m => 
+                new Date(m.timestamp).toDateString() === selectedDate
+            );
+            
+            if (filteredMovements.length === 0) {
+                doc.text('No hay movimientos para esta fecha', 20, 60);
+            } else {
+                // Crear tabla
+                const tableData = filteredMovements.map(m => {
+                    const date = new Date(m.timestamp);
+                    return [
+                        `${date.toLocaleTimeString()}`,
+                        `${m.keyNumber} - ${m.keyName}`,
+                        m.personName,
+                        m.status === 'prestada' ? 'Prestada' : 'Devuelta'
+                    ];
+                });
+                
+                doc.autoTable({
+                    startY: 50,
+                    head: [['Hora', 'Llave', 'Retirada por', 'Estado']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [243, 156, 18] }
+                });
+            }
+            
+            // Guardar PDF
+            const fileName = `movimientos_llaves_${reportDate}.pdf`;
+            doc.save(fileName);
+        }
+
         // Generar PDF de movimientos de vehículos del día
         function generateVehicleTodayPDF() {
             const { jsPDF } = window.jspdf;
@@ -1077,390 +1748,6 @@
             
             // Guardar PDF
             const fileName = `vehiculos_${reportDate}.pdf`;
-            doc.save(fileName);
-        }
-
-        // ===========================================
-        // MANEJADORES DE FORMULARIOS
-        // ===========================================
-
-        // Manejar envío del formulario de vehículos
-        async function handleVehicleFormSubmit(e) {
-            e.preventDefault();
-            
-            const plate = document.getElementById('vehiclePlate').value.toUpperCase();
-            const company = document.getElementById('vehicleCompany').value;
-            const notes = document.getElementById('vehicleNotes').value;
-            
-            // Verificar si el vehículo ya está en el parqueadero
-            const alreadyParked = vehicleMovements.some(m => m.plate === plate && m.status === 'parked');
-            if (alreadyParked) {
-                alert('Error: Este vehículo ya está registrado en el parqueadero');
-                return;
-            }
-            
-            // Registrar movimiento
-            const movement = {
-                plate: plate,
-                company: company,
-                notes: notes,
-                status: 'parked',
-                timestamp: new Date().toISOString(),
-                exitTimestamp: null
-            };
-            
-            await registerVehicleMovement(movement);
-        }
-
-        // Manejar envío del formulario de nuevo vehículo
-        function handleNewVehicleSubmit() {
-            const plate = document.getElementById('newVehiclePlate').value.toUpperCase();
-            const company = document.getElementById('newVehicleCompany').value;
-            
-            if (!plate || !company) {
-                alert('Por favor, complete todos los campos obligatorios');
-                return;
-            }
-            
-            // Verificar si la matrícula ya existe
-            const existingVehicle = vehicles.find(v => v.plate === plate);
-            if (existingVehicle) {
-                alert('Error: Ya existe un vehículo con esta matrícula');
-                return;
-            }
-            
-            const vehicleData = {
-                plate: plate,
-                company: company
-            };
-            
-            saveNewVehicle(vehicleData);
-        }
-
-        // ===========================================
-        // INICIALIZACIÓN DE LA APLICACIÓN
-        // ===========================================
-
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeApp();
-        });
-
-        async function initializeApp() {
-            console.log("🚀 Inicializando aplicación...");
-            
-            // Cargar opciones de llaves en el select
-            const keySelect = document.getElementById('keySelect');
-            keys.forEach(key => {
-                const option = document.createElement('option');
-                option.value = key.id;
-                option.textContent = `${key.id} - ${key.name}`;
-                keySelect.appendChild(option);
-            });
-
-            // Actualizar estadísticas de llaves
-            updateStats();
-
-            // Cargar historial de movimientos de llaves
-            loadMovements();
-
-            // Probar conexión con Firebase
-            await testFirebaseConnection();
-
-            // Cargar datos de vehículos desde Firebase
-            await loadVehicles();
-            await loadVehicleMovements();
-
-            // Configurar eventos para llaves
-            document.getElementById('keyForm').addEventListener('submit', handleFormSubmit);
-            document.getElementById('filterToday').addEventListener('click', () => filterMovements('today'));
-            document.getElementById('filterAll').addEventListener('click', () => filterMovements('all'));
-            document.getElementById('generateTodayReport').addEventListener('click', generateTodayPDF);
-            document.getElementById('generateDateReport').addEventListener('click', generateDatePDF);
-            
-            // Configurar eventos para vehículos - FORMA MEJORADA
-            const vehicleForm = document.getElementById('vehicleForm');
-            const vehiclePlate = document.getElementById('vehiclePlate');
-            
-            if (vehicleForm) {
-                vehicleForm.addEventListener('submit', handleVehicleFormSubmit);
-                console.log("✅ Event listener configurado para formulario de vehículos");
-            } else {
-                console.error("❌ No se encontró el formulario de vehículos");
-            }
-            
-            if (vehiclePlate) {
-                // Múltiples eventos para mejor detección
-                vehiclePlate.addEventListener('input', autoFillCompany);
-                vehiclePlate.addEventListener('change', autoFillCompany);
-                vehiclePlate.addEventListener('blur', autoFillCompany);
-                console.log("✅ Event listeners configurados para campo de matrícula");
-            } else {
-                console.error("❌ No se encontró el campo de matrícula");
-            }
-            
-            document.getElementById('filterVehicleToday').addEventListener('click', () => filterVehicleMovements('today'));
-            document.getElementById('filterVehicleAll').addEventListener('click', () => filterVehicleMovements('all'));
-            document.getElementById('generateVehicleTodayReport').addEventListener('click', generateVehicleTodayPDF);
-            document.getElementById('generateVehicleDateReport').addEventListener('click', generateVehicleDatePDF);
-            document.getElementById('saveNewVehicleBtn').addEventListener('click', handleNewVehicleSubmit);
-            
-            // Establecer fecha actual por defecto en los selectores de fecha
-            document.getElementById('reportDate').valueAsDate = new Date();
-            document.getElementById('vehicleReportDate').valueAsDate = new Date();
-            
-            console.log("✅ Aplicación inicializada correctamente");
-        }
-
-        // ===========================================
-        // FUNCIONES ORIGINALES DEL SISTEMA DE LLAVES
-        // ===========================================
-
-        function handleFormSubmit(e) {
-            e.preventDefault();
-            
-            const keyId = parseInt(document.getElementById('keySelect').value);
-            const personName = document.getElementById('personName').value;
-            const notes = document.getElementById('notes').value;
-            
-            // Validar que la llave existe
-            const key = keys.find(k => k.id === keyId);
-            if (!key) {
-                alert('Error: Llave no encontrada');
-                return;
-            }
-            
-            // Validar que la llave está disponible
-            if (key.status !== 'available') {
-                alert('Error: Esta llave ya está prestada');
-                return;
-            }
-            
-            // Registrar movimiento
-            const movement = {
-                id: Date.now(),
-                keyId: keyId,
-                keyName: key.name,
-                personName: personName,
-                notes: notes,
-                status: 'prestada',
-                timestamp: new Date().toISOString(),
-                returnTimestamp: null
-            };
-            
-            movements.unshift(movement);
-            localStorage.setItem('keyMovements', JSON.stringify(movements));
-            
-            // Actualizar estado de la llave
-            key.status = 'borrowed';
-            
-            // Limpiar formulario
-            document.getElementById('keyForm').reset();
-            
-            // Actualizar interfaz
-            updateStats();
-            loadMovements();
-            
-            // Mostrar mensaje de éxito
-            alert(`Retirada registrada correctamente: Llave ${keyId} - ${key.name} retirada por ${personName}`);
-        }
-
-        function loadMovements(filter = 'all') {
-            const tbody = document.querySelector('#movementsTable tbody');
-            tbody.innerHTML = '';
-            
-            let filteredMovements = movements;
-            
-            if (filter === 'today') {
-                const today = new Date().toDateString();
-                filteredMovements = movements.filter(m => 
-                    new Date(m.timestamp).toDateString() === today
-                );
-            }
-            
-            if (filteredMovements.length === 0) {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td colspan="5" class="text-center">No hay movimientos registrados</td>`;
-                tbody.appendChild(row);
-                return;
-            }
-            
-            filteredMovements.forEach(movement => {
-                const row = document.createElement('tr');
-                const date = new Date(movement.timestamp);
-                const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-                
-                // Crear botón de entregada con evento directamente
-                const entregadaButton = movement.status === 'prestada' ? 
-                    `<button class="btn btn-sm btn-success entregada-btn" data-movement-id="${movement.id}">
-                        <i class="bi bi-check-lg me-1"></i>Entregada
-                    </button>` : 
-                    `<span class="text-muted">Devuelta ${movement.returnTimestamp ? new Date(movement.returnTimestamp).toLocaleDateString() : ''}</span>`;
-                
-                row.innerHTML = `
-                    <td>${formattedDate}</td>
-                    <td>${movement.keyId} - ${movement.keyName}</td>
-                    <td>${movement.personName}</td>
-                    <td>
-                        <span class="key-status ${movement.status === 'prestada' ? 'status-borrowed' : 'status-available'}">
-                            ${movement.status === 'prestada' ? 'Prestada' : 'Devuelta'}
-                        </span>
-                    </td>
-                    <td>${entregadaButton}</td>
-                `;
-                
-                tbody.appendChild(row);
-            });
-            
-            // Agregar event listeners a los botones de entregada
-            document.querySelectorAll('.entregada-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    const movementId = parseInt(this.getAttribute('data-movement-id'));
-                    markAsReturned(movementId);
-                });
-            });
-        }
-
-        function markAsReturned(movementId) {
-            const movement = movements.find(m => m.id === movementId);
-            if (movement) {
-                movement.status = 'devuelta';
-                movement.returnTimestamp = new Date().toISOString();
-                
-                // Actualizar estado de la llave
-                const key = keys.find(k => k.id === movement.keyId);
-                if (key) {
-                    key.status = 'available';
-                }
-                
-                localStorage.setItem('keyMovements', JSON.stringify(movements));
-                loadMovements();
-                updateStats();
-            }
-        }
-
-        function filterMovements(type) {
-            loadMovements(type);
-            
-            // Actualizar botones activos
-            document.getElementById('filterToday').classList.toggle('btn-filter', type === 'today');
-            document.getElementById('filterToday').classList.toggle('btn-outline-primary', type !== 'today');
-            document.getElementById('filterAll').classList.toggle('btn-primary', type === 'all');
-            document.getElementById('filterAll').classList.toggle('btn-outline-secondary', type !== 'all');
-        }
-
-        function updateStats() {
-            const totalKeys = keys.length;
-            const availableKeys = keys.filter(k => k.status === 'available').length;
-            const borrowedKeys = keys.filter(k => k.status === 'borrowed').length;
-            
-            const today = new Date().toDateString();
-            const todayMovements = movements.filter(m => 
-                new Date(m.timestamp).toDateString() === today
-            ).length;
-            
-            document.getElementById('totalKeys').textContent = totalKeys;
-            document.getElementById('availableKeys').textContent = availableKeys;
-            document.getElementById('borrowedKeys').textContent = borrowedKeys;
-            document.getElementById('todayMovements').textContent = todayMovements;
-            
-            document.getElementById('availableBadge').textContent = availableKeys;
-            document.getElementById('borrowedBadge').textContent = borrowedKeys;
-        }
-
-        function generateTodayPDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            // Título del reporte
-            doc.setFontSize(16);
-            doc.text('Sistema de Control de Llaves', 20, 20);
-            doc.setFontSize(12);
-            doc.text(`Reporte del día: ${new Date().toLocaleDateString()}`, 20, 30);
-            doc.text(`Generado: ${new Date().toLocaleString()}`, 20, 40);
-            
-            // Filtrar movimientos de hoy
-            const today = new Date().toDateString();
-            const todayMovements = movements.filter(m => 
-                new Date(m.timestamp).toDateString() === today
-            );
-            
-            if (todayMovements.length === 0) {
-                doc.text('No hay movimientos para hoy', 20, 60);
-            } else {
-                // Crear tabla
-                const tableData = todayMovements.map(m => {
-                    const date = new Date(m.timestamp);
-                    return [
-                        `${date.toLocaleTimeString()}`,
-                        `${m.keyId} - ${m.keyName}`,
-                        m.personName,
-                        m.status === 'prestada' ? 'Prestada' : 'Devuelta'
-                    ];
-                });
-                
-                doc.autoTable({
-                    startY: 50,
-                    head: [['Hora', 'Llave', 'Retirada por', 'Estado']],
-                    body: tableData,
-                    theme: 'grid',
-                    headStyles: { fillColor: [44, 62, 80] }
-                });
-            }
-            
-            // Guardar PDF
-            const fileName = `movimientos_${new Date().toISOString().split('T')[0]}.pdf`;
-            doc.save(fileName);
-        }
-
-        function generateDatePDF() {
-            const reportDate = document.getElementById('reportDate').value;
-            
-            if (!reportDate) {
-                alert('Por favor, seleccione una fecha');
-                return;
-            }
-            
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            // Título del reporte
-            doc.setFontSize(16);
-            doc.text('Sistema de Control de Llaves', 20, 20);
-            doc.setFontSize(12);
-            doc.text(`Reporte del día: ${new Date(reportDate).toLocaleDateString()}`, 20, 30);
-            doc.text(`Generado: ${new Date().toLocaleString()}`, 20, 40);
-            
-            // Filtrar movimientos por fecha seleccionada
-            const selectedDate = new Date(reportDate).toDateString();
-            const filteredMovements = movements.filter(m => 
-                new Date(m.timestamp).toDateString() === selectedDate
-            );
-            
-            if (filteredMovements.length === 0) {
-                doc.text('No hay movimientos para esta fecha', 20, 60);
-            } else {
-                // Crear tabla
-                const tableData = filteredMovements.map(m => {
-                    const date = new Date(m.timestamp);
-                    return [
-                        `${date.toLocaleTimeString()}`,
-                        `${m.keyId} - ${m.keyName}`,
-                        m.personName,
-                        m.status === 'prestada' ? 'Prestada' : 'Devuelta'
-                    ];
-                });
-                
-                doc.autoTable({
-                    startY: 50,
-                    head: [['Hora', 'Llave', 'Retirada por', 'Estado']],
-                    body: tableData,
-                    theme: 'grid',
-                    headStyles: { fillColor: [44, 62, 80] }
-                });
-            }
-            
-            // Guardar PDF
-            const fileName = `movimientos_${reportDate}.pdf`;
             doc.save(fileName);
         }
     </script>
