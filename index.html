@@ -635,10 +635,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // ===========================================
-        // CONFIGURACIÓN DE FIREBASE
+        // CONFIGURACIÓN DE FIREBASE CON DIAGNÓSTICO
         // ===========================================
         
-        // REEMPLAZA ESTOS VALORES CON TUS DATOS REALES DE FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyCNHnsj6bVwpX-87xr4JkUtYo5Omng6PHo",
             authDomain: "registrojt-5538c.firebaseapp.com",
@@ -648,23 +647,84 @@
             appId: "1:305055514477:web:2bb66d8429ae7152c6a464"
         };
 
-        // Verificar configuración
-        console.log("🔧 Configurando Firebase...");
-        if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "TU_API_KEY") {
-            console.error("❌ ERROR: Configuración de Firebase no válida");
-            alert("Error: La configuración de Firebase no está completa. Revisa los valores de firebaseConfig.");
-        } else {
-            console.log("✅ Configuración Firebase OK");
+        console.log("🚀 INICIANDO APLICACIÓN...");
+        console.log("📍 URL:", window.location.href);
+        console.log("🔧 Configuración Firebase:", firebaseConfig);
+
+        let db;
+        let firebaseInitialized = false;
+
+        // Función para diagnosticar problemas
+        async function diagnoseFirebase() {
+            console.group("🔍 DIAGNÓSTICO FIREBASE");
+            
+            // 1. Verificar si Firebase está cargado
+            if (typeof firebase === 'undefined') {
+                console.error("❌ Firebase no está cargado en la página");
+                return false;
+            }
+            console.log("✅ Firebase SDK cargado");
+
+            // 2. Verificar módulos específicos
+            if (typeof firebase.initializeApp === 'undefined') {
+                console.error("❌ firebase.initializeApp no disponible");
+                return false;
+            }
+            console.log("✅ Módulos Firebase disponibles");
+
+            // 3. Intentar inicializar
+            try {
+                if (firebase.apps.length === 0) {
+                    firebase.initializeApp(firebaseConfig);
+                    console.log("✅ Firebase inicializado correctamente");
+                } else {
+                    console.log("✅ Firebase ya estaba inicializado");
+                }
+                
+                // 4. Verificar Firestore
+                if (typeof firebase.firestore === 'undefined') {
+                    console.error("❌ Firestore no disponible");
+                    return false;
+                }
+                
+                db = firebase.firestore();
+                console.log("✅ Firestore configurado");
+
+                // 5. Probar conexión simple
+                const testQuery = db.collection('test').limit(1);
+                await testQuery.get();
+                console.log("✅ Conexión a Firestore exitosa");
+                
+                firebaseInitialized = true;
+                console.groupEnd();
+                return true;
+                
+            } catch (error) {
+                console.error("❌ Error en diagnóstico:", error);
+                if (error.code === 'permission-denied') {
+                    console.error("🔐 ERROR DE PERMISOS: Configura las reglas de Firestore para permitir lectura/escritura");
+                }
+                console.groupEnd();
+                return false;
+            }
         }
 
-        // Inicializar Firebase
-        let db;
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            console.log("✅ Firebase inicializado correctamente");
-        } catch (error) {
-            console.error("❌ Error inicializando Firebase:", error);
+        // Función para mostrar estado de la aplicación
+        function showAppStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('appStatus') || createStatusDiv();
+            statusDiv.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show">
+                    <strong>${type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌'} ${message}</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+        }
+
+        function createStatusDiv() {
+            const div = document.createElement('div');
+            div.id = 'appStatus';
+            document.querySelector('.container').insertBefore(div, document.querySelector('.logo-container'));
+            return div;
         }
 
         // ===========================================
@@ -677,63 +737,158 @@
         let vehicleMovements = [];
 
         // ===========================================
-        // FUNCIONES PARA LLAVES
+        // FUNCIONES MEJORADAS CON MANEJO DE ERRORES
         // ===========================================
 
         // Cargar llaves desde Firebase
         async function loadKeys() {
+            if (!firebaseInitialized) {
+                console.warn("⚠️ Firebase no inicializado - saltando carga de llaves");
+                return;
+            }
+
             try {
-                console.log("🔄 Cargando llaves desde Firebase...");
+                console.log("🔄 Cargando llaves...");
+                showAppStatus("Cargando llaves...", "info");
+                
                 const snapshot = await db.collection('keys').orderBy('number').get();
                 keys = [];
                 
-                snapshot.forEach(doc => {
-                    const keyData = doc.data();
-                    console.log(`🔑 Llave cargada: ${keyData.number} - ${keyData.name} (ID: ${doc.id})`);
-                    keys.push({ 
-                        id: doc.id, 
-                        number: keyData.number,
-                        name: keyData.name,
-                        status: 'available'
-                    });
-                });
+                console.log(`📊 Snapshot de llaves: ${snapshot.size} documentos`);
                 
-                console.log(`✅ ${keys.length} llaves cargadas correctamente`);
+                if (snapshot.empty) {
+                    console.log("ℹ️ No hay llaves en la base de datos");
+                    showAppStatus("No hay llaves registradas. Usa el botón 'Añadir Llave Nueva' para crear la primera.", "warning");
+                } else {
+                    snapshot.forEach(doc => {
+                        const keyData = doc.data();
+                        console.log(`🔑 Llave: ${keyData.number} - ${keyData.name}`);
+                        keys.push({ 
+                            id: doc.id, 
+                            number: keyData.number,
+                            name: keyData.name,
+                            status: 'available'
+                        });
+                    });
+                    
+                    console.log(`✅ ${keys.length} llaves cargadas`);
+                    showAppStatus(`${keys.length} llaves cargadas correctamente`, "success");
+                }
+                
                 updateKeyStats();
                 populateKeyNumberSelect();
                 
             } catch (error) {
                 console.error("❌ Error cargando llaves:", error);
+                showAppStatus(`Error cargando llaves: ${error.message}`, "danger");
+                
+                if (error.code === 'permission-denied') {
+                    showAppStatus("ERROR: Permisos denegados. Configura las reglas de seguridad en Firebase Console.", "danger");
+                }
             }
         }
 
-        // Cargar movimientos de llaves desde Firebase
+        // Cargar movimientos de llaves
         async function loadKeyMovements() {
+            if (!firebaseInitialized) {
+                console.warn("⚠️ Firebase no inicializado - saltando carga de movimientos");
+                return;
+            }
+
             try {
-                console.log("🔄 Cargando movimientos de llaves desde Firebase...");
-                const snapshot = await db.collection('keyMovements').orderBy('timestamp', 'desc').get();
+                console.log("🔄 Cargando movimientos de llaves...");
+                const snapshot = await db.collection('keyMovements').orderBy('timestamp', 'desc').limit(50).get();
                 keyMovements = [];
+                
+                console.log(`📊 Snapshot de movimientos: ${snapshot.size} documentos`);
                 
                 snapshot.forEach(doc => {
                     const movementData = doc.data();
-                    console.log(`📝 Movimiento de llave cargado: ${movementData.keyNumber} - ${movementData.status}`);
                     keyMovements.push({ id: doc.id, ...movementData });
                 });
                 
-                console.log(`✅ ${keyMovements.length} movimientos de llaves cargados correctamente`);
+                console.log(`✅ ${keyMovements.length} movimientos cargados`);
                 updateKeyStatuses();
                 loadMovements();
                 updateStats();
                 
             } catch (error) {
-                console.error("❌ Error cargando movimientos de llaves:", error);
+                console.error("❌ Error cargando movimientos:", error);
+                if (error.code === 'permission-denied') {
+                    console.error("🔐 ERROR DE PERMISOS: Revisa las reglas de Firestore");
+                }
+            }
+        }
+
+        // Cargar vehículos
+        async function loadVehicles() {
+            if (!firebaseInitialized) {
+                console.warn("⚠️ Firebase no inicializado - saltando carga de vehículos");
+                return;
+            }
+
+            try {
+                console.log("🔄 Cargando vehículos...");
+                const snapshot = await db.collection('vehicles').get();
+                vehicles = [];
+                
+                console.log(`📊 Snapshot de vehículos: ${snapshot.size} documentos`);
+                
+                if (snapshot.empty) {
+                    console.log("ℹ️ No hay vehículos en la base de datos");
+                } else {
+                    snapshot.forEach(doc => {
+                        const vehicleData = doc.data();
+                        vehicles.push({ id: doc.id, ...vehicleData });
+                    });
+                    console.log(`✅ ${vehicles.length} vehículos cargados`);
+                }
+                
+                updateVehicleStats();
+                populateVehiclePlateSelect();
+                
+            } catch (error) {
+                console.error("❌ Error cargando vehículos:", error);
+            }
+        }
+
+        // Cargar movimientos de vehículos
+        async function loadVehicleMovements() {
+            if (!firebaseInitialized) {
+                console.warn("⚠️ Firebase no inicializado - saltando carga de movimientos de vehículos");
+                return;
+            }
+
+            try {
+                console.log("🔄 Cargando movimientos de vehículos...");
+                const snapshot = await db.collection('vehicleMovements').orderBy('timestamp', 'desc').limit(50).get();
+                vehicleMovements = [];
+                
+                console.log(`📊 Snapshot de movimientos de vehículos: ${snapshot.size} documentos`);
+                
+                snapshot.forEach(doc => {
+                    const movementData = doc.data();
+                    vehicleMovements.push({ id: doc.id, ...movementData });
+                });
+                
+                console.log(`✅ ${vehicleMovements.length} movimientos de vehículos cargados`);
+                loadVehicleMovementsTable();
+                updateVehicleStats();
+                
+            } catch (error) {
+                console.error("❌ Error cargando movimientos de vehículos:", error);
             }
         }
 
         // Guardar una nueva llave en Firebase
         async function saveNewKey(keyData) {
+            if (!firebaseInitialized) {
+                alert("❌ Error: Base de datos no disponible");
+                return;
+            }
+
             try {
-                console.log("💾 Guardando llave en Firebase:", keyData);
+                console.log("💾 Guardando llave...");
                 
                 const existingKey = keys.find(k => k.number === keyData.number);
                 if (existingKey) {
@@ -745,47 +900,57 @@
                 console.log(`✅ Llave guardada con ID: ${docRef.id}`);
                 
                 await loadKeys();
-                alert('✅ Llave guardada correctamente en la base de datos');
+                alert('✅ Llave guardada correctamente');
                 document.getElementById('newKeyForm').reset();
                 bootstrap.Modal.getInstance(document.getElementById('addKeyModal')).hide();
                 
             } catch (error) {
                 console.error("❌ Error guardando llave:", error);
-                alert('❌ Error al guardar la llave. Revisa la consola para más detalles.');
+                alert('❌ Error al guardar la llave: ' + error.message);
             }
         }
 
         // Registrar movimiento de llave
         async function registerKeyMovement(movementData) {
+            if (!firebaseInitialized) {
+                alert("❌ Error: Base de datos no disponible");
+                return;
+            }
+
             try {
-                console.log("📝 Registrando movimiento de llave:", movementData);
+                console.log("📝 Registrando movimiento...");
                 
                 const docRef = await db.collection('keyMovements').add(movementData);
-                console.log(`✅ Movimiento de llave registrado con ID: ${docRef.id}`);
+                console.log(`✅ Movimiento registrado con ID: ${docRef.id}`);
                 
                 await loadKeyMovements();
                 alert('✅ Retirada registrada correctamente');
                 document.getElementById('keyForm').reset();
                 
             } catch (error) {
-                console.error("❌ Error registrando movimiento de llave:", error);
-                alert('❌ Error al registrar la retirada. Revisa la consola para más detalles.');
+                console.error("❌ Error registrando movimiento:", error);
+                alert('❌ Error al registrar la retirada: ' + error.message);
             }
         }
 
         // Actualizar movimiento de llave (devolución)
         async function updateKeyMovement(movementId, returnData) {
+            if (!firebaseInitialized) {
+                alert("❌ Error: Base de datos no disponible");
+                return;
+            }
+
             try {
-                console.log("🔑 Registrando devolución para movimiento:", movementId);
+                console.log("🔑 Registrando devolución...");
                 
                 await db.collection('keyMovements').doc(movementId).update(returnData);
-                console.log(`✅ Devolución registrada correctamente para movimiento: ${movementId}`);
+                console.log(`✅ Devolución registrada`);
                 
                 await loadKeyMovements();
                 
             } catch (error) {
-                console.error("❌ Error actualizando movimiento de llave:", error);
-                alert('❌ Error al registrar la devolución. Revisa la consola para más detalles.');
+                console.error("❌ Error actualizando movimiento:", error);
+                alert('❌ Error al registrar la devolución: ' + error.message);
             }
         }
 
@@ -805,77 +970,39 @@
             });
         }
 
-        // ===========================================
-        // FUNCIONES PARA VEHÍCULOS
-        // ===========================================
-
-        // Cargar vehículos desde Firebase
-        async function loadVehicles() {
-            try {
-                console.log("🔄 Cargando vehículos desde Firebase...");
-                const snapshot = await db.collection('vehicles').get();
-                vehicles = [];
-                
-                snapshot.forEach(doc => {
-                    const vehicleData = doc.data();
-                    console.log(`🚗 Vehículo cargado: ${vehicleData.plate} - ${vehicleData.company} (ID: ${doc.id})`);
-                    vehicles.push({ id: doc.id, ...vehicleData });
-                });
-                
-                console.log(`✅ ${vehicles.length} vehículos cargados correctamente`);
-                updateVehicleStats();
-                populateVehiclePlateSelect();
-                
-            } catch (error) {
-                console.error("❌ Error cargando vehículos:", error);
-            }
-        }
-
-        // Cargar movimientos de vehículos desde Firebase
-        async function loadVehicleMovements() {
-            try {
-                console.log("🔄 Cargando movimientos de vehículos desde Firebase...");
-                const snapshot = await db.collection('vehicleMovements').orderBy('timestamp', 'desc').get();
-                vehicleMovements = [];
-                
-                snapshot.forEach(doc => {
-                    const movementData = doc.data();
-                    console.log(`📝 Movimiento cargado: ${movementData.plate} - ${movementData.status}`);
-                    vehicleMovements.push({ id: doc.id, ...movementData });
-                });
-                
-                console.log(`✅ ${vehicleMovements.length} movimientos cargados correctamente`);
-                loadVehicleMovementsTable();
-                updateVehicleStats();
-                
-            } catch (error) {
-                console.error("❌ Error cargando movimientos de vehículos:", error);
-            }
-        }
-
         // Guardar un nuevo vehículo en Firebase
         async function saveNewVehicle(vehicleData) {
+            if (!firebaseInitialized) {
+                alert("❌ Error: Base de datos no disponible");
+                return;
+            }
+
             try {
-                console.log("💾 Guardando vehículo en Firebase:", vehicleData);
+                console.log("💾 Guardando vehículo...");
                 
                 const docRef = await db.collection('vehicles').add(vehicleData);
                 console.log(`✅ Vehículo guardado con ID: ${docRef.id}`);
                 
                 await loadVehicles();
-                alert('✅ Vehículo guardado correctamente en la base de datos');
+                alert('✅ Vehículo guardado correctamente');
                 document.getElementById('newVehicleForm').reset();
                 bootstrap.Modal.getInstance(document.getElementById('addVehicleModal')).hide();
                 
             } catch (error) {
                 console.error("❌ Error guardando vehículo:", error);
-                alert('❌ Error al guardar el vehículo. Revisa la consola para más detalles.');
+                alert('❌ Error al guardar el vehículo: ' + error.message);
             }
         }
 
         // Registrar movimiento de vehículo
         async function registerVehicleMovement(movementData) {
+            if (!firebaseInitialized) {
+                alert("❌ Error: Base de datos no disponible");
+                return;
+            }
+
             try {
-                console.log("📝 Registrando movimiento de vehículo:", movementData);
+                console.log("📝 Registrando movimiento de vehículo...");
                 
                 const docRef = await db.collection('vehicleMovements').add(movementData);
                 console.log(`✅ Movimiento registrado con ID: ${docRef.id}`);
@@ -886,23 +1013,28 @@
                 
             } catch (error) {
                 console.error("❌ Error registrando movimiento:", error);
-                alert('❌ Error al registrar la entrada. Revisa la consola para más detalles.');
+                alert('❌ Error al registrar la entrada: ' + error.message);
             }
         }
 
         // Actualizar movimiento de vehículo (salida)
         async function updateVehicleMovement(movementId, exitData) {
+            if (!firebaseInitialized) {
+                alert("❌ Error: Base de datos no disponible");
+                return;
+            }
+
             try {
-                console.log("🚗 Registrando salida para movimiento:", movementId);
+                console.log("🚗 Registrando salida...");
                 
                 await db.collection('vehicleMovements').doc(movementId).update(exitData);
-                console.log(`✅ Salida registrada correctamente para movimiento: ${movementId}`);
+                console.log(`✅ Salida registrada`);
                 
                 await loadVehicleMovements();
                 
             } catch (error) {
                 console.error("❌ Error actualizando movimiento:", error);
-                alert('❌ Error al registrar la salida. Revisa la consola para más detalles.');
+                alert('❌ Error al registrar la salida: ' + error.message);
             }
         }
 
@@ -910,7 +1042,6 @@
         // FUNCIONES DE AUTOCOMPLETADO
         // ===========================================
 
-        // Rellenar automáticamente el nombre al introducir el número
         function autoFillKeyName() {
             const numberInput = document.getElementById('keyNumber');
             const nameInput = document.getElementById('keyName');
@@ -937,7 +1068,6 @@
             }
         }
 
-        // Poblar el datalist para autocompletar números de llave
         function populateKeyNumberSelect() {
             const numberInput = document.getElementById('keyNumber');
             if (!numberInput) return;
@@ -960,7 +1090,6 @@
             numberInput.setAttribute('list', 'keyNumbersList');
         }
 
-        // Rellenar automáticamente la empresa al introducir la matrícula
         function autoFillCompany() {
             const plateInput = document.getElementById('vehiclePlate');
             const companyInput = document.getElementById('vehicleCompany');
@@ -987,7 +1116,6 @@
             }
         }
 
-        // Poblar el datalist para autocompletar matrículas
         function populateVehiclePlateSelect() {
             const plateInput = document.getElementById('vehiclePlate');
             if (!plateInput) return;
@@ -1014,9 +1142,10 @@
         // FUNCIONES DE INTERFAZ
         // ===========================================
 
-        // Cargar tabla de movimientos de llaves
         function loadMovements(filter = 'all') {
             const tbody = document.querySelector('#movementsTable tbody');
+            if (!tbody) return;
+            
             tbody.innerHTML = '';
             
             let filteredMovements = keyMovements;
@@ -1085,9 +1214,10 @@
             });
         }
 
-        // Cargar tabla de movimientos de vehículos
         function loadVehicleMovementsTable(filter = 'all') {
             const tbody = document.querySelector('#vehicleMovementsTable tbody');
+            if (!tbody) return;
+            
             tbody.innerHTML = '';
             
             let filteredMovements = vehicleMovements;
@@ -1140,7 +1270,6 @@
             });
         }
 
-        // Mostrar modal para registrar devolución de llave
         function showReturnKeyModal(movementId) {
             document.getElementById('returnKeyMovementId').value = movementId;
             document.getElementById('returnedBy').value = '';
@@ -1150,7 +1279,6 @@
             modal.show();
         }
 
-        // Registrar devolución de llave con nombre de quien entrega
         async function registerKeyReturn() {
             const movementId = document.getElementById('returnKeyMovementId').value;
             const returnedBy = document.getElementById('returnedBy').value;
@@ -1172,7 +1300,6 @@
             bootstrap.Modal.getInstance(document.getElementById('returnKeyModal')).hide();
         }
 
-        // Registrar salida de vehículo
         function registerVehicleExit(movementId) {
             const exitData = {
                 status: 'exited',
@@ -1185,7 +1312,6 @@
         // MANEJADORES DE FORMULARIOS
         // ===========================================
 
-        // Manejar envío del formulario de llaves
         async function handleKeyFormSubmit(e) {
             e.preventDefault();
             
@@ -1218,7 +1344,6 @@
             await registerKeyMovement(movement);
         }
 
-        // Manejar envío del formulario de nuevo llave
         function handleNewKeySubmit() {
             const number = parseInt(document.getElementById('newKeyNumber').value);
             const name = document.getElementById('newKeyName').value;
@@ -1236,7 +1361,6 @@
             saveNewKey(keyData);
         }
 
-        // Manejar envío del formulario de vehículos
         async function handleVehicleFormSubmit(e) {
             e.preventDefault();
             
@@ -1262,7 +1386,6 @@
             await registerVehicleMovement(movement);
         }
 
-        // Manejar envío del formulario de nuevo vehículo
         function handleNewVehicleSubmit() {
             const plate = document.getElementById('newVehiclePlate').value.toUpperCase();
             const company = document.getElementById('newVehicleCompany').value;
@@ -1358,7 +1481,7 @@
         }
 
         // ===========================================
-        // INICIALIZACIÓN
+        // INICIALIZACIÓN MEJORADA
         // ===========================================
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -1366,19 +1489,62 @@
         });
 
         async function initializeApp() {
-            console.log("🚀 Inicializando aplicación...");
+            console.log("🚀 INICIANDO APLICACIÓN...");
+            showAppStatus("Iniciando aplicación...", "info");
             
-            // Cargar datos desde Firebase
-            await loadKeys();
-            await loadKeyMovements();
-            await loadVehicles();
-            await loadVehicleMovements();
+            try {
+                // 1. Diagnosticar Firebase
+                const firebaseOK = await diagnoseFirebase();
+                
+                if (!firebaseOK) {
+                    throw new Error("No se pudo inicializar Firebase. Revisa la consola para más detalles.");
+                }
 
+                // 2. Cargar datos
+                console.log("📦 Cargando datos desde Firebase...");
+                showAppStatus("Cargando datos...", "info");
+                
+                await loadKeys();
+                await loadKeyMovements();
+                await loadVehicles();
+                await loadVehicleMovements();
+
+                // 3. Configurar eventos
+                setupEventListeners();
+
+                // 4. Configurar fecha
+                document.getElementById('reportDate').valueAsDate = new Date();
+                
+                console.log("✅ APLICACIÓN INICIALIZADA CORRECTAMENTE");
+                showAppStatus("Aplicación lista para usar", "success");
+                
+                // Ocultar el mensaje después de 5 segundos
+                setTimeout(() => {
+                    const alert = document.querySelector('.alert-success');
+                    if (alert) {
+                        alert.remove();
+                    }
+                }, 5000);
+                
+            } catch (error) {
+                console.error("❌ ERROR INICIALIZANDO APLICACIÓN:", error);
+                showAppStatus(`Error: ${error.message}`, "danger");
+            }
+        }
+
+        function setupEventListeners() {
             // Configurar eventos para llaves
-            document.getElementById('keyForm').addEventListener('submit', handleKeyFormSubmit);
-            document.getElementById('keyNumber').addEventListener('input', autoFillKeyName);
-            document.getElementById('keyNumber').addEventListener('change', autoFillKeyName);
-            document.getElementById('keyNumber').addEventListener('blur', autoFillKeyName);
+            const keyForm = document.getElementById('keyForm');
+            if (keyForm) {
+                keyForm.addEventListener('submit', handleKeyFormSubmit);
+            }
+            
+            const keyNumber = document.getElementById('keyNumber');
+            if (keyNumber) {
+                keyNumber.addEventListener('input', autoFillKeyName);
+                keyNumber.addEventListener('change', autoFillKeyName);
+                keyNumber.addEventListener('blur', autoFillKeyName);
+            }
             
             document.getElementById('filterToday').addEventListener('click', () => filterMovements('today'));
             document.getElementById('filterAll').addEventListener('click', () => filterMovements('all'));
@@ -1395,71 +1561,11 @@
             document.getElementById('filterVehicleAll').addEventListener('click', () => filterVehicleMovements('all'));
             document.getElementById('saveNewVehicleBtn').addEventListener('click', handleNewVehicleSubmit);
 
-            // Establecer fecha actual por defecto
-            document.getElementById('reportDate').valueAsDate = new Date();
-            
-            console.log("✅ Aplicación inicializada correctamente");
+            console.log("✅ Eventos configurados");
         }
-    <!-- Script para verificar y solucionar problemas de carga -->
-<script>
-// Verificador de entorno
-console.log("🔍 Verificando entorno...");
-console.log("Protocolo:", window.location.protocol);
-console.log("Host:", window.location.host);
-
-// Solución para GitHub Pages
-if (window.location.hostname.includes('github.io') || 
-    window.location.protocol === 'file:') {
-    console.log("⚠️  Ejecutando en entorno estático - aplicando soluciones...");
-    
-    // Solución para CORS y Firebase
-    const firebaseConfig = {
-        apiKey: "AIzaSyCNHnsj6bVwpX-87xr4JkUtYo5Omng6PHo",
-        authDomain: "registrojt-5538c.firebaseapp.com",
-        projectId: "registrojt-5538c",
-        storageBucket: "registrojt-5538c.firebasestorage.app",
-        messagingSenderId: "305055514477",
-        appId: "1:305055514477:web:2bb66d8429ae7152c6a464"
-    };
-
-    // Inicializar Firebase con manejo de errores mejorado
-    try {
-        if (typeof firebase !== 'undefined') {
-            firebase.initializeApp(firebaseConfig);
-            console.log("✅ Firebase inicializado en GitHub Pages");
-            
-            // Forzar carga de datos
-            setTimeout(() => {
-                if (typeof initializeApp === 'function') {
-                    initializeApp();
-                }
-            }, 1000);
-        }
-    } catch (error) {
-        console.error("❌ Error inicializando Firebase:", error);
-        
-        // Mostrar interfaz de error amigable
-        document.body.innerHTML = `
-            <div class="container mt-5">
-                <div class="alert alert-warning">
-                    <h4>⚠️ Aplicación en Modo Demo</h4>
-                    <p>La aplicación se está ejecutando en un entorno de prueba. Los datos no se guardarán permanentemente.</p>
-                    <p><strong>Para funcionalidad completa:</strong></p>
-                    <ul>
-                        <li>Usa Firebase Hosting para despliegue</li>
-                        <li>O ejecuta con un servidor local</li>
-                    </ul>
-                    <button onclick="location.reload()" class="btn btn-primary">Reintentar</button>
-                </div>
-            </div>
-        `;
-    }
-}
-</script>
     </script>
 </body>
 </html>
-
 
 
 
