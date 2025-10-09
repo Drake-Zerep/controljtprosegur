@@ -185,14 +185,6 @@
             background-color: #fff3cd !important;
             transition: background-color 0.5s ease;
         }
-        
-        .form-container {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
     </style>
 </head>
 <body>
@@ -425,9 +417,9 @@
                 </div>
             </div>
 
-            <!-- Pestaña de Vehículos (sin cambios por ahora) -->
+            <!-- Pestaña de Vehículos -->
             <div class="tab-pane fade" id="vehicles" role="tabpanel">
-                <!-- Contenido de vehículos sin cambios -->
+                <!-- Contenido de vehículos -->
                 <div class="row mb-4">
                     <div class="col-md-3">
                         <div class="card stats-card">
@@ -486,7 +478,7 @@
                             </div>
                         </div>
                         
-                        <!-- Botón para añadir vehículo nuevo -->
+                        <!-- Gestión de vehículos -->
                         <div class="card mt-4">
                             <div class="card-header">
                                 <i class="bi bi-truck me-2"></i>Gestión de Vehículos
@@ -646,6 +638,7 @@
         // CONFIGURACIÓN DE FIREBASE
         // ===========================================
         
+        // REEMPLAZA ESTOS VALORES CON TUS DATOS REALES DE FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyCNHnsj6bVwpX-87xr4JkUtYo5Omng6PHo",
             authDomain: "registrojt-5538c.firebaseapp.com",
@@ -654,6 +647,15 @@
             messagingSenderId: "305055514477",
             appId: "1:305055514477:web:2bb66d8429ae7152c6a464"
         };
+
+        // Verificar configuración
+        console.log("🔧 Configurando Firebase...");
+        if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "TU_API_KEY") {
+            console.error("❌ ERROR: Configuración de Firebase no válida");
+            alert("Error: La configuración de Firebase no está completa. Revisa los valores de firebaseConfig.");
+        } else {
+            console.log("✅ Configuración Firebase OK");
+        }
 
         // Inicializar Firebase
         let db;
@@ -675,10 +677,344 @@
         let vehicleMovements = [];
 
         // ===========================================
-        // FUNCIONES MEJORADAS PARA LLAVES
+        // FUNCIONES PARA LLAVES
         // ===========================================
 
-        // Cargar tabla de movimientos de llaves (MEJORADA con columna "Entregada por")
+        // Cargar llaves desde Firebase
+        async function loadKeys() {
+            try {
+                console.log("🔄 Cargando llaves desde Firebase...");
+                const snapshot = await db.collection('keys').orderBy('number').get();
+                keys = [];
+                
+                snapshot.forEach(doc => {
+                    const keyData = doc.data();
+                    console.log(`🔑 Llave cargada: ${keyData.number} - ${keyData.name} (ID: ${doc.id})`);
+                    keys.push({ 
+                        id: doc.id, 
+                        number: keyData.number,
+                        name: keyData.name,
+                        status: 'available'
+                    });
+                });
+                
+                console.log(`✅ ${keys.length} llaves cargadas correctamente`);
+                updateKeyStats();
+                populateKeyNumberSelect();
+                
+            } catch (error) {
+                console.error("❌ Error cargando llaves:", error);
+            }
+        }
+
+        // Cargar movimientos de llaves desde Firebase
+        async function loadKeyMovements() {
+            try {
+                console.log("🔄 Cargando movimientos de llaves desde Firebase...");
+                const snapshot = await db.collection('keyMovements').orderBy('timestamp', 'desc').get();
+                keyMovements = [];
+                
+                snapshot.forEach(doc => {
+                    const movementData = doc.data();
+                    console.log(`📝 Movimiento de llave cargado: ${movementData.keyNumber} - ${movementData.status}`);
+                    keyMovements.push({ id: doc.id, ...movementData });
+                });
+                
+                console.log(`✅ ${keyMovements.length} movimientos de llaves cargados correctamente`);
+                updateKeyStatuses();
+                loadMovements();
+                updateStats();
+                
+            } catch (error) {
+                console.error("❌ Error cargando movimientos de llaves:", error);
+            }
+        }
+
+        // Guardar una nueva llave en Firebase
+        async function saveNewKey(keyData) {
+            try {
+                console.log("💾 Guardando llave en Firebase:", keyData);
+                
+                const existingKey = keys.find(k => k.number === keyData.number);
+                if (existingKey) {
+                    alert('Error: Ya existe una llave con ese número');
+                    return;
+                }
+                
+                const docRef = await db.collection('keys').add(keyData);
+                console.log(`✅ Llave guardada con ID: ${docRef.id}`);
+                
+                await loadKeys();
+                alert('✅ Llave guardada correctamente en la base de datos');
+                document.getElementById('newKeyForm').reset();
+                bootstrap.Modal.getInstance(document.getElementById('addKeyModal')).hide();
+                
+            } catch (error) {
+                console.error("❌ Error guardando llave:", error);
+                alert('❌ Error al guardar la llave. Revisa la consola para más detalles.');
+            }
+        }
+
+        // Registrar movimiento de llave
+        async function registerKeyMovement(movementData) {
+            try {
+                console.log("📝 Registrando movimiento de llave:", movementData);
+                
+                const docRef = await db.collection('keyMovements').add(movementData);
+                console.log(`✅ Movimiento de llave registrado con ID: ${docRef.id}`);
+                
+                await loadKeyMovements();
+                alert('✅ Retirada registrada correctamente');
+                document.getElementById('keyForm').reset();
+                
+            } catch (error) {
+                console.error("❌ Error registrando movimiento de llave:", error);
+                alert('❌ Error al registrar la retirada. Revisa la consola para más detalles.');
+            }
+        }
+
+        // Actualizar movimiento de llave (devolución)
+        async function updateKeyMovement(movementId, returnData) {
+            try {
+                console.log("🔑 Registrando devolución para movimiento:", movementId);
+                
+                await db.collection('keyMovements').doc(movementId).update(returnData);
+                console.log(`✅ Devolución registrada correctamente para movimiento: ${movementId}`);
+                
+                await loadKeyMovements();
+                
+            } catch (error) {
+                console.error("❌ Error actualizando movimiento de llave:", error);
+                alert('❌ Error al registrar la devolución. Revisa la consola para más detalles.');
+            }
+        }
+
+        // Actualizar estados de las llaves
+        function updateKeyStatuses() {
+            keys.forEach(key => {
+                key.status = 'available';
+            });
+            
+            keyMovements.forEach(movement => {
+                if (movement.status === 'prestada') {
+                    const key = keys.find(k => k.number === movement.keyNumber);
+                    if (key) {
+                        key.status = 'borrowed';
+                    }
+                }
+            });
+        }
+
+        // ===========================================
+        // FUNCIONES PARA VEHÍCULOS
+        // ===========================================
+
+        // Cargar vehículos desde Firebase
+        async function loadVehicles() {
+            try {
+                console.log("🔄 Cargando vehículos desde Firebase...");
+                const snapshot = await db.collection('vehicles').get();
+                vehicles = [];
+                
+                snapshot.forEach(doc => {
+                    const vehicleData = doc.data();
+                    console.log(`🚗 Vehículo cargado: ${vehicleData.plate} - ${vehicleData.company} (ID: ${doc.id})`);
+                    vehicles.push({ id: doc.id, ...vehicleData });
+                });
+                
+                console.log(`✅ ${vehicles.length} vehículos cargados correctamente`);
+                updateVehicleStats();
+                populateVehiclePlateSelect();
+                
+            } catch (error) {
+                console.error("❌ Error cargando vehículos:", error);
+            }
+        }
+
+        // Cargar movimientos de vehículos desde Firebase
+        async function loadVehicleMovements() {
+            try {
+                console.log("🔄 Cargando movimientos de vehículos desde Firebase...");
+                const snapshot = await db.collection('vehicleMovements').orderBy('timestamp', 'desc').get();
+                vehicleMovements = [];
+                
+                snapshot.forEach(doc => {
+                    const movementData = doc.data();
+                    console.log(`📝 Movimiento cargado: ${movementData.plate} - ${movementData.status}`);
+                    vehicleMovements.push({ id: doc.id, ...movementData });
+                });
+                
+                console.log(`✅ ${vehicleMovements.length} movimientos cargados correctamente`);
+                loadVehicleMovementsTable();
+                updateVehicleStats();
+                
+            } catch (error) {
+                console.error("❌ Error cargando movimientos de vehículos:", error);
+            }
+        }
+
+        // Guardar un nuevo vehículo en Firebase
+        async function saveNewVehicle(vehicleData) {
+            try {
+                console.log("💾 Guardando vehículo en Firebase:", vehicleData);
+                
+                const docRef = await db.collection('vehicles').add(vehicleData);
+                console.log(`✅ Vehículo guardado con ID: ${docRef.id}`);
+                
+                await loadVehicles();
+                alert('✅ Vehículo guardado correctamente en la base de datos');
+                document.getElementById('newVehicleForm').reset();
+                bootstrap.Modal.getInstance(document.getElementById('addVehicleModal')).hide();
+                
+            } catch (error) {
+                console.error("❌ Error guardando vehículo:", error);
+                alert('❌ Error al guardar el vehículo. Revisa la consola para más detalles.');
+            }
+        }
+
+        // Registrar movimiento de vehículo
+        async function registerVehicleMovement(movementData) {
+            try {
+                console.log("📝 Registrando movimiento de vehículo:", movementData);
+                
+                const docRef = await db.collection('vehicleMovements').add(movementData);
+                console.log(`✅ Movimiento registrado con ID: ${docRef.id}`);
+                
+                await loadVehicleMovements();
+                alert('✅ Entrada registrada correctamente');
+                document.getElementById('vehicleForm').reset();
+                
+            } catch (error) {
+                console.error("❌ Error registrando movimiento:", error);
+                alert('❌ Error al registrar la entrada. Revisa la consola para más detalles.');
+            }
+        }
+
+        // Actualizar movimiento de vehículo (salida)
+        async function updateVehicleMovement(movementId, exitData) {
+            try {
+                console.log("🚗 Registrando salida para movimiento:", movementId);
+                
+                await db.collection('vehicleMovements').doc(movementId).update(exitData);
+                console.log(`✅ Salida registrada correctamente para movimiento: ${movementId}`);
+                
+                await loadVehicleMovements();
+                
+            } catch (error) {
+                console.error("❌ Error actualizando movimiento:", error);
+                alert('❌ Error al registrar la salida. Revisa la consola para más detalles.');
+            }
+        }
+
+        // ===========================================
+        // FUNCIONES DE AUTOCOMPLETADO
+        // ===========================================
+
+        // Rellenar automáticamente el nombre al introducir el número
+        function autoFillKeyName() {
+            const numberInput = document.getElementById('keyNumber');
+            const nameInput = document.getElementById('keyName');
+            
+            if (!numberInput || !nameInput) return;
+            
+            const number = parseInt(numberInput.value);
+            
+            if (isNaN(number)) {
+                nameInput.value = '';
+                return;
+            }
+            
+            const key = keys.find(k => k.number === number);
+            
+            if (key) {
+                nameInput.value = key.name;
+                nameInput.classList.add('key-autocomplete-highlight');
+                setTimeout(() => {
+                    nameInput.classList.remove('key-autocomplete-highlight');
+                }, 1000);
+            } else {
+                nameInput.value = '';
+            }
+        }
+
+        // Poblar el datalist para autocompletar números de llave
+        function populateKeyNumberSelect() {
+            const numberInput = document.getElementById('keyNumber');
+            if (!numberInput) return;
+            
+            const existingDatalist = document.getElementById('keyNumbersList');
+            if (existingDatalist) {
+                existingDatalist.remove();
+            }
+            
+            const datalist = document.createElement('datalist');
+            datalist.id = 'keyNumbersList';
+            
+            keys.forEach(key => {
+                const option = document.createElement('option');
+                option.value = key.number;
+                datalist.appendChild(option);
+            });
+            
+            document.body.appendChild(datalist);
+            numberInput.setAttribute('list', 'keyNumbersList');
+        }
+
+        // Rellenar automáticamente la empresa al introducir la matrícula
+        function autoFillCompany() {
+            const plateInput = document.getElementById('vehiclePlate');
+            const companyInput = document.getElementById('vehicleCompany');
+            
+            if (!plateInput || !companyInput) return;
+            
+            const plate = plateInput.value.toUpperCase().trim();
+            
+            if (plate.length === 0) {
+                companyInput.value = '';
+                return;
+            }
+            
+            const vehicle = vehicles.find(v => v.plate.toUpperCase().trim() === plate);
+            
+            if (vehicle) {
+                companyInput.value = vehicle.company;
+                companyInput.classList.add('autocomplete-highlight');
+                setTimeout(() => {
+                    companyInput.classList.remove('autocomplete-highlight');
+                }, 1000);
+            } else {
+                companyInput.value = '';
+            }
+        }
+
+        // Poblar el datalist para autocompletar matrículas
+        function populateVehiclePlateSelect() {
+            const plateInput = document.getElementById('vehiclePlate');
+            if (!plateInput) return;
+            
+            const existingDatalist = document.getElementById('vehiclePlatesList');
+            if (existingDatalist) {
+                existingDatalist.remove();
+            }
+            
+            const datalist = document.createElement('datalist');
+            datalist.id = 'vehiclePlatesList';
+            
+            vehicles.forEach(vehicle => {
+                const option = document.createElement('option');
+                option.value = vehicle.plate;
+                datalist.appendChild(option);
+            });
+            
+            document.body.appendChild(datalist);
+            plateInput.setAttribute('list', 'vehiclePlatesList');
+        }
+
+        // ===========================================
+        // FUNCIONES DE INTERFAZ
+        // ===========================================
+
+        // Cargar tabla de movimientos de llaves
         function loadMovements(filter = 'all') {
             const tbody = document.querySelector('#movementsTable tbody');
             tbody.innerHTML = '';
@@ -707,14 +1043,12 @@
                 let accionesHTML = '';
                 
                 if (movement.status === 'prestada') {
-                    // Llave aún prestada - mostrar botón para devolver
                     accionesHTML = `
                         <button class="btn btn-sm btn-success entregada-btn" data-movement-id="${movement.id}">
                             <i class="bi bi-check-lg me-1"></i>Entregada
                         </button>
                     `;
                 } else {
-                    // Llave ya devuelta - mostrar hora de devolución
                     const returnTime = movement.returnTimestamp ? 
                         new Date(movement.returnTimestamp).toLocaleTimeString() : 
                         'Hora no registrada';
@@ -743,11 +1077,65 @@
                 tbody.appendChild(row);
             });
             
-            // Agregar event listeners a los botones de entregada
             document.querySelectorAll('.entregada-btn').forEach(button => {
                 button.addEventListener('click', function() {
                     const movementId = this.getAttribute('data-movement-id');
                     showReturnKeyModal(movementId);
+                });
+            });
+        }
+
+        // Cargar tabla de movimientos de vehículos
+        function loadVehicleMovementsTable(filter = 'all') {
+            const tbody = document.querySelector('#vehicleMovementsTable tbody');
+            tbody.innerHTML = '';
+            
+            let filteredMovements = vehicleMovements;
+            
+            if (filter === 'today') {
+                const today = new Date().toDateString();
+                filteredMovements = vehicleMovements.filter(m => 
+                    new Date(m.timestamp).toDateString() === today
+                );
+            }
+            
+            if (filteredMovements.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="5" class="text-center">No hay movimientos registrados</td>`;
+                tbody.appendChild(row);
+                return;
+            }
+            
+            filteredMovements.forEach(movement => {
+                const row = document.createElement('tr');
+                const date = new Date(movement.timestamp);
+                const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                
+                const exitButton = movement.status === 'parked' ? 
+                    `<button class="btn btn-sm btn-success exit-btn" data-movement-id="${movement.id}">
+                        <i class="bi bi-box-arrow-right me-1"></i>Registrar Salida
+                    </button>` : 
+                    `<span class="text-muted">Salida: ${movement.exitTimestamp ? new Date(movement.exitTimestamp).toLocaleTimeString() : ''}</span>`;
+                
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${movement.plate}</td>
+                    <td>${movement.company}</td>
+                    <td>
+                        <span class="vehicle-status ${movement.status === 'parked' ? 'status-parked' : 'status-exited'}">
+                            ${movement.status === 'parked' ? 'En Parqueadero' : 'Salida Registrada'}
+                        </span>
+                    </td>
+                    <td>${exitButton}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            document.querySelectorAll('.exit-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const movementId = this.getAttribute('data-movement-id');
+                    registerVehicleExit(movementId);
                 });
             });
         }
@@ -784,61 +1172,123 @@
             bootstrap.Modal.getInstance(document.getElementById('returnKeyModal')).hide();
         }
 
-        // ===========================================
-        // FUNCIONES EXISTENTES (modificadas ligeramente)
-        // ===========================================
-
-        async function updateKeyMovement(movementId, returnData) {
-            try {
-                console.log("🔑 Registrando devolución para movimiento:", movementId);
-                
-                await db.collection('keyMovements').doc(movementId).update(returnData);
-                console.log(`✅ Devolución registrada correctamente para movimiento: ${movementId}`);
-                
-                await loadKeyMovements();
-                
-            } catch (error) {
-                console.error("❌ Error actualizando movimiento de llave:", error);
-                alert('❌ Error al registrar la devolución. Revisa la consola para más detalles.');
-            }
+        // Registrar salida de vehículo
+        function registerVehicleExit(movementId) {
+            const exitData = {
+                status: 'exited',
+                exitTimestamp: new Date().toISOString()
+            };
+            updateVehicleMovement(movementId, exitData);
         }
 
-        async function loadKeyMovements() {
-            try {
-                console.log("🔄 Cargando movimientos de llaves desde Firebase...");
-                const snapshot = await db.collection('keyMovements').orderBy('timestamp', 'desc').get();
-                keyMovements = [];
-                
-                snapshot.forEach(doc => {
-                    const movementData = doc.data();
-                    console.log(`📝 Movimiento de llave cargado: ${movementData.keyNumber} - ${movementData.status}`);
-                    keyMovements.push({ id: doc.id, ...movementData });
-                });
-                
-                console.log(`✅ ${keyMovements.length} movimientos de llaves cargados correctamente`);
-                updateKeyStatuses();
-                loadMovements();
-                updateStats();
-                
-            } catch (error) {
-                console.error("❌ Error cargando movimientos de llaves:", error);
-            }
-        }
+        // ===========================================
+        // MANEJADORES DE FORMULARIOS
+        // ===========================================
 
-        function updateKeyStatuses() {
-            keys.forEach(key => {
-                key.status = 'available';
-            });
+        // Manejar envío del formulario de llaves
+        async function handleKeyFormSubmit(e) {
+            e.preventDefault();
             
-            keyMovements.forEach(movement => {
-                if (movement.status === 'prestada') {
-                    const key = keys.find(k => k.number === movement.keyNumber);
-                    if (key) {
-                        key.status = 'borrowed';
-                    }
-                }
-            });
+            const keyNumber = parseInt(document.getElementById('keyNumber').value);
+            const keyName = document.getElementById('keyName').value;
+            const personName = document.getElementById('personName').value;
+            const notes = document.getElementById('notes').value;
+            
+            const key = keys.find(k => k.number === keyNumber);
+            if (!key) {
+                alert('Error: Llave no encontrada');
+                return;
+            }
+            
+            if (key.status !== 'available') {
+                alert('Error: Esta llave ya está prestada');
+                return;
+            }
+            
+            const movement = {
+                keyNumber: keyNumber,
+                keyName: keyName,
+                personName: personName,
+                notes: notes,
+                status: 'prestada',
+                timestamp: new Date().toISOString(),
+                returnTimestamp: null
+            };
+            
+            await registerKeyMovement(movement);
         }
+
+        // Manejar envío del formulario de nuevo llave
+        function handleNewKeySubmit() {
+            const number = parseInt(document.getElementById('newKeyNumber').value);
+            const name = document.getElementById('newKeyName').value;
+            
+            if (!number || !name) {
+                alert('Por favor, complete todos los campos obligatorios');
+                return;
+            }
+            
+            const keyData = {
+                number: number,
+                name: name
+            };
+            
+            saveNewKey(keyData);
+        }
+
+        // Manejar envío del formulario de vehículos
+        async function handleVehicleFormSubmit(e) {
+            e.preventDefault();
+            
+            const plate = document.getElementById('vehiclePlate').value.toUpperCase();
+            const company = document.getElementById('vehicleCompany').value;
+            const notes = document.getElementById('vehicleNotes').value;
+            
+            const alreadyParked = vehicleMovements.some(m => m.plate === plate && m.status === 'parked');
+            if (alreadyParked) {
+                alert('Error: Este vehículo ya está registrado en el parqueadero');
+                return;
+            }
+            
+            const movement = {
+                plate: plate,
+                company: company,
+                notes: notes,
+                status: 'parked',
+                timestamp: new Date().toISOString(),
+                exitTimestamp: null
+            };
+            
+            await registerVehicleMovement(movement);
+        }
+
+        // Manejar envío del formulario de nuevo vehículo
+        function handleNewVehicleSubmit() {
+            const plate = document.getElementById('newVehiclePlate').value.toUpperCase();
+            const company = document.getElementById('newVehicleCompany').value;
+            
+            if (!plate || !company) {
+                alert('Por favor, complete todos los campos obligatorios');
+                return;
+            }
+            
+            const existingVehicle = vehicles.find(v => v.plate === plate);
+            if (existingVehicle) {
+                alert('Error: Ya existe un vehículo con esta matrícula');
+                return;
+            }
+            
+            const vehicleData = {
+                plate: plate,
+                company: company
+            };
+            
+            saveNewVehicle(vehicleData);
+        }
+
+        // ===========================================
+        // FUNCIONES DE ESTADÍSTICAS
+        // ===========================================
 
         function updateStats() {
             const totalKeys = keys.length;
@@ -859,6 +1309,54 @@
             document.getElementById('borrowedBadge').textContent = borrowedKeys;
         }
 
+        function updateKeyStats() {
+            updateStats();
+        }
+
+        function updateVehicleStats() {
+            const totalVehicles = vehicles.length;
+            const parkedVehicles = vehicleMovements.filter(m => m.status === 'parked').length;
+            
+            const today = new Date().toDateString();
+            const exitedToday = vehicleMovements.filter(m => 
+                m.status === 'exited' && new Date(m.exitTimestamp).toDateString() === today
+            ).length;
+            
+            const todayMovements = vehicleMovements.filter(m => 
+                new Date(m.timestamp).toDateString() === today
+            ).length;
+            
+            document.getElementById('totalVehicles').textContent = totalVehicles;
+            document.getElementById('parkedVehicles').textContent = parkedVehicles;
+            document.getElementById('exitedVehicles').textContent = exitedToday;
+            document.getElementById('vehicleMovements').textContent = todayMovements;
+            
+            document.getElementById('parkedBadge').textContent = parkedVehicles;
+            document.getElementById('exitedBadge').textContent = exitedToday;
+        }
+
+        // ===========================================
+        // FILTROS
+        // ===========================================
+
+        function filterMovements(type) {
+            loadMovements(type);
+            
+            document.getElementById('filterToday').classList.toggle('btn-filter', type === 'today');
+            document.getElementById('filterToday').classList.toggle('btn-outline-primary', type !== 'today');
+            document.getElementById('filterAll').classList.toggle('btn-primary', type === 'all');
+            document.getElementById('filterAll').classList.toggle('btn-outline-secondary', type !== 'all');
+        }
+
+        function filterVehicleMovements(type) {
+            loadVehicleMovementsTable(type);
+            
+            document.getElementById('filterVehicleToday').classList.toggle('btn-filter', type === 'today');
+            document.getElementById('filterVehicleToday').classList.toggle('btn-outline-primary', type !== 'today');
+            document.getElementById('filterVehicleAll').classList.toggle('btn-primary', type === 'all');
+            document.getElementById('filterVehicleAll').classList.toggle('btn-outline-secondary', type !== 'all');
+        }
+
         // ===========================================
         // INICIALIZACIÓN
         // ===========================================
@@ -877,29 +1375,31 @@
             await loadVehicleMovements();
 
             // Configurar eventos para llaves
-            const keyForm = document.getElementById('keyForm');
-            const keyNumber = document.getElementById('keyNumber');
-            
-            if (keyForm) {
-                keyForm.addEventListener('submit', handleKeyFormSubmit);
-            }
-            
-            if (keyNumber) {
-                keyNumber.addEventListener('input', autoFillKeyName);
-                keyNumber.addEventListener('change', autoFillKeyName);
-                keyNumber.addEventListener('blur', autoFillKeyName);
-            }
+            document.getElementById('keyForm').addEventListener('submit', handleKeyFormSubmit);
+            document.getElementById('keyNumber').addEventListener('input', autoFillKeyName);
+            document.getElementById('keyNumber').addEventListener('change', autoFillKeyName);
+            document.getElementById('keyNumber').addEventListener('blur', autoFillKeyName);
             
             document.getElementById('filterToday').addEventListener('click', () => filterMovements('today'));
             document.getElementById('filterAll').addEventListener('click', () => filterMovements('all'));
+            document.getElementById('saveNewKeyBtn').addEventListener('click', handleNewKeySubmit);
             document.getElementById('saveReturnKeyBtn').addEventListener('click', registerKeyReturn);
+
+            // Configurar eventos para vehículos
+            document.getElementById('vehicleForm').addEventListener('submit', handleVehicleFormSubmit);
+            document.getElementById('vehiclePlate').addEventListener('input', autoFillCompany);
+            document.getElementById('vehiclePlate').addEventListener('change', autoFillCompany);
+            document.getElementById('vehiclePlate').addEventListener('blur', autoFillCompany);
+            
+            document.getElementById('filterVehicleToday').addEventListener('click', () => filterVehicleMovements('today'));
+            document.getElementById('filterVehicleAll').addEventListener('click', () => filterVehicleMovements('all'));
+            document.getElementById('saveNewVehicleBtn').addEventListener('click', handleNewVehicleSubmit);
+
+            // Establecer fecha actual por defecto
+            document.getElementById('reportDate').valueAsDate = new Date();
             
             console.log("✅ Aplicación inicializada correctamente");
         }
-
-        // Las demás funciones permanecen igual...
-        // (handleKeyFormSubmit, autoFillKeyName, filterMovements, etc.)
-
     </script>
 </body>
 </html>
