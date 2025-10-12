@@ -81,6 +81,11 @@
             border: none;
         }
         
+        .btn-warning {
+            background-color: #f39c12;
+            border: none;
+        }
+        
         .table-responsive {
             border-radius: 8px;
             overflow: hidden;
@@ -595,6 +600,55 @@
         </div>
     </div>
 
+    <!-- Modal para corregir horarios de vehículos -->
+    <div class="modal fade" id="correctVehicleTimeModal" tabindex="-1" aria-labelledby="correctVehicleTimeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="correctVehicleTimeModalLabel">Corregir Horario de Vehículo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="correctVehicleTimeForm">
+                        <input type="hidden" id="correctVehicleMovementId">
+                        <div class="mb-3">
+                            <label for="vehiclePlateDisplay" class="form-label">Matrícula</label>
+                            <input type="text" class="form-control" id="vehiclePlateDisplay" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="vehicleCompanyDisplay" class="form-label">Empresa</label>
+                            <input type="text" class="form-control" id="vehicleCompanyDisplay" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="timeType" class="form-label">Tipo de Hora a Corregir</label>
+                            <select class="form-control" id="timeType" required>
+                                <option value="">Seleccione...</option>
+                                <option value="entrada">Hora de Entrada</option>
+                                <option value="salida">Hora de Salida</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="correctedDate" class="form-label">Fecha</label>
+                            <input type="date" class="form-control" id="correctedDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="correctedTime" class="form-label">Hora</label>
+                            <input type="time" class="form-control" id="correctedTime" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="correctionReason" class="form-label">Motivo de la Corrección</label>
+                            <textarea class="form-control" id="correctionReason" rows="2" required placeholder="Explique el motivo de la corrección..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-warning" id="saveCorrectedTimeBtn">Guardar Corrección</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="mt-5">
         <div class="container text-center">
@@ -988,6 +1042,40 @@
             }
         }
 
+        // Corregir horario de vehículo
+        async function correctVehicleTime(movementId, correctionData) {
+            if (!firebaseInitialized) {
+                alert("❌ Error: Base de datos no disponible");
+                return;
+            }
+
+            try {
+                console.log("🕒 Corrigiendo horario de vehículo...");
+                
+                // Actualizar el movimiento con los datos corregidos
+                await db.collection('vehicleMovements').doc(movementId).update(correctionData);
+                console.log(`✅ Horario corregido`);
+                
+                // Registrar la corrección en un historial separado
+                const correctionRecord = {
+                    movementId: movementId,
+                    correctionData: correctionData,
+                    correctedAt: new Date().toISOString(),
+                    correctedBy: "Usuario" // Podrías añadir autenticación para obtener el usuario actual
+                };
+                
+                await db.collection('vehicleTimeCorrections').add(correctionRecord);
+                console.log(`✅ Corrección registrada en historial`);
+                
+                await loadVehicleMovements();
+                alert('✅ Horario corregido correctamente');
+                
+            } catch (error) {
+                console.error("❌ Error corrigiendo horario:", error);
+                alert('❌ Error al corregir el horario: ' + error.message);
+            }
+        }
+
         // ===========================================
         // FUNCIONES DE INTERFAZ
         // ===========================================
@@ -1193,6 +1281,13 @@
                     </button>` : 
                     `<span class="text-muted">Salida: ${movement.exitTimestamp ? new Date(movement.exitTimestamp).toLocaleTimeString() : ''}</span>`;
                 
+                // Botón para corregir horario
+                const correctTimeButton = `
+                    <button class="btn btn-sm btn-warning correct-time-btn mt-1" data-movement-id="${movement.id}">
+                        <i class="bi bi-clock-history me-1"></i>Corregir Hora
+                    </button>
+                `;
+                
                 row.innerHTML = `
                     <td>${formattedDate}</td>
                     <td>${movement.plate}</td>
@@ -1202,7 +1297,12 @@
                             ${movement.status === 'parked' ? 'En Parqueadero' : 'Salida Registrada'}
                         </span>
                     </td>
-                    <td>${exitButton}</td>
+                    <td>
+                        <div class="d-flex flex-column">
+                            ${exitButton}
+                            ${correctTimeButton}
+                        </div>
+                    </td>
                 `;
                 
                 tbody.appendChild(row);
@@ -1214,6 +1314,13 @@
                     registerVehicleExit(movementId);
                 });
             });
+            
+            document.querySelectorAll('.correct-time-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const movementId = this.getAttribute('data-movement-id');
+                    showCorrectTimeModal(movementId);
+                });
+            });
         }
 
         function showReturnKeyModal(movementId) {
@@ -1222,6 +1329,22 @@
             document.getElementById('returnNotes').value = '';
             
             const modal = new bootstrap.Modal(document.getElementById('returnKeyModal'));
+            modal.show();
+        }
+
+        function showCorrectTimeModal(movementId) {
+            const movement = vehicleMovements.find(m => m.id === movementId);
+            if (!movement) return;
+            
+            document.getElementById('correctVehicleMovementId').value = movementId;
+            document.getElementById('vehiclePlateDisplay').value = movement.plate;
+            document.getElementById('vehicleCompanyDisplay').value = movement.company;
+            document.getElementById('timeType').value = '';
+            document.getElementById('correctedDate').value = '';
+            document.getElementById('correctedTime').value = '';
+            document.getElementById('correctionReason').value = '';
+            
+            const modal = new bootstrap.Modal(document.getElementById('correctVehicleTimeModal'));
             modal.show();
         }
 
@@ -1252,6 +1375,37 @@
                 exitTimestamp: new Date().toISOString()
             };
             updateVehicleMovement(movementId, exitData);
+        }
+
+        async function saveCorrectedTime() {
+            const movementId = document.getElementById('correctVehicleMovementId').value;
+            const timeType = document.getElementById('timeType').value;
+            const correctedDate = document.getElementById('correctedDate').value;
+            const correctedTime = document.getElementById('correctedTime').value;
+            const correctionReason = document.getElementById('correctionReason').value;
+            
+            if (!timeType || !correctedDate || !correctedTime || !correctionReason) {
+                alert('Por favor, complete todos los campos obligatorios');
+                return;
+            }
+            
+            const correctedDateTime = new Date(`${correctedDate}T${correctedTime}`);
+            
+            const correctionData = {
+                correctionReason: correctionReason,
+                correctedBy: "Usuario", // Podrías añadir autenticación para obtener el usuario actual
+                correctedAt: new Date().toISOString()
+            };
+            
+            // Actualizar el campo correspondiente según el tipo de hora
+            if (timeType === 'entrada') {
+                correctionData.timestamp = correctedDateTime.toISOString();
+            } else if (timeType === 'salida') {
+                correctionData.exitTimestamp = correctedDateTime.toISOString();
+            }
+            
+            await correctVehicleTime(movementId, correctionData);
+            bootstrap.Modal.getInstance(document.getElementById('correctVehicleTimeModal')).hide();
         }
 
         // ===========================================
@@ -1494,12 +1648,16 @@
             document.getElementById('filterVehicleToday').addEventListener('click', () => filterVehicleMovements('today'));
             document.getElementById('filterVehicleAll').addEventListener('click', () => filterVehicleMovements('all'));
             document.getElementById('saveNewVehicleBtn').addEventListener('click', handleNewVehicleSubmit);
+            
+            // Configurar evento para corregir horario de vehículos
+            document.getElementById('saveCorrectedTimeBtn').addEventListener('click', saveCorrectedTime);
 
             console.log("✅ Eventos configurados");
         }
     </script>
 </body>
 </html>
+
 
 
 
